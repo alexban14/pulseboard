@@ -78,7 +78,9 @@
 
 ---
 
-## Phase 3: Multi-Tenant + Auth (Target: 6 weeks)
+## Phase 3: Multi-Tenant + Auth + NLQ (Target: 8 weeks)
+
+### Multi-Tenant & Auth
 
 - [ ] 3.1 — Self-service tenant signup
 - [ ] 3.2 — Onboarding wizard: connect → discover → sync → model → dashboard
@@ -96,6 +98,26 @@
 - [ ] 3.14 — Widget drill-down
 - [ ] 3.15 — Dashboard auto-refresh
 - [ ] 3.16 — Landing page / marketing site
+
+### Natural Language Queries (NLQ) — [Full plan](planning/14-NATURAL-LANGUAGE-QUERIES.md)
+
+- [ ] 3.17 — NLQ service scaffold (NestJS module, LLM provider interface)
+- [ ] 3.18 — Claude Haiku provider implementation
+- [ ] 3.19 — Prompt construction from semantic model context
+- [ ] 3.20 — Response parsing + Zod validation + slug resolution
+- [ ] 3.21 — Retry logic (validation failure → retry with error context)
+- [ ] 3.22 — Query cache (Redis, normalized exact match)
+- [ ] 3.23 — API endpoint: POST /api/nlq/query
+- [ ] 3.24 — Frontend: NLQ input bar + result rendering
+- [ ] 3.25 — Conversation support (multi-turn follow-ups)
+- [ ] 3.26 — Clarification UI (low confidence → ask user)
+- [ ] 3.27 — Suggested queries (per model, cached)
+- [ ] 3.28 — "Save as Widget" + "Edit in Query Builder" from NLQ results
+- [ ] 3.29 — OpenAI fallback provider
+- [ ] 3.30 — Ollama self-hosted provider
+- [ ] 3.31 — BYOK (Bring Your Own Key) tenant config
+- [ ] 3.32 — Usage tracking + plan quota enforcement
+- [ ] 3.33 — NLQ query history table + API
 
 ---
 
@@ -132,5 +154,4 @@
 - [ ] Connector SDK + Marketplace
 - [ ] White-label branding
 - [ ] Kubernetes migration (Talos OS on Mini PCs)
-- [ ] AI-assisted modeling
-- [ ] Natural language queries
+- [ ] AI-assisted modeling (auto-suggest metrics/dimensions from schema)
