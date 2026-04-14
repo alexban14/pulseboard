@@ -1,0 +1,15 @@
+node_modules
+dist
+.turbo
+*.tsbuildinfo
+.git
+.env
+.env.local
+.env.*.local
+docs
+pipelines
+infra
+*.md
+.DS_Store
+.vscode
+.idea
