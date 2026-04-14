@@ -10,12 +10,26 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SourcesRouteImport } from './routes/sources'
+import { Route as RegisterRouteImport } from './routes/register'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardsRouteImport } from './routes/dashboards'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SourcesNewRouteImport } from './routes/sources/new'
+import { Route as SourcesSourceIdRouteImport } from './routes/sources/$sourceId'
 
 const SourcesRoute = SourcesRouteImport.update({
   id: '/sources',
   path: '/sources',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardsRoute = DashboardsRouteImport.update({
@@ -28,35 +42,81 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SourcesNewRoute = SourcesNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => SourcesRoute,
+} as any)
+const SourcesSourceIdRoute = SourcesSourceIdRouteImport.update({
+  id: '/$sourceId',
+  path: '/$sourceId',
+  getParentRoute: () => SourcesRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboards': typeof DashboardsRoute
-  '/sources': typeof SourcesRoute
+  '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
+  '/sources': typeof SourcesRouteWithChildren
+  '/sources/$sourceId': typeof SourcesSourceIdRoute
+  '/sources/new': typeof SourcesNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboards': typeof DashboardsRoute
-  '/sources': typeof SourcesRoute
+  '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
+  '/sources': typeof SourcesRouteWithChildren
+  '/sources/$sourceId': typeof SourcesSourceIdRoute
+  '/sources/new': typeof SourcesNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboards': typeof DashboardsRoute
-  '/sources': typeof SourcesRoute
+  '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
+  '/sources': typeof SourcesRouteWithChildren
+  '/sources/$sourceId': typeof SourcesSourceIdRoute
+  '/sources/new': typeof SourcesNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboards' | '/sources'
+  fullPaths:
+    | '/'
+    | '/dashboards'
+    | '/login'
+    | '/register'
+    | '/sources'
+    | '/sources/$sourceId'
+    | '/sources/new'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboards' | '/sources'
-  id: '__root__' | '/' | '/dashboards' | '/sources'
+  to:
+    | '/'
+    | '/dashboards'
+    | '/login'
+    | '/register'
+    | '/sources'
+    | '/sources/$sourceId'
+    | '/sources/new'
+  id:
+    | '__root__'
+    | '/'
+    | '/dashboards'
+    | '/login'
+    | '/register'
+    | '/sources'
+    | '/sources/$sourceId'
+    | '/sources/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardsRoute: typeof DashboardsRoute
-  SourcesRoute: typeof SourcesRoute
+  LoginRoute: typeof LoginRoute
+  RegisterRoute: typeof RegisterRoute
+  SourcesRoute: typeof SourcesRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -66,6 +126,20 @@ declare module '@tanstack/react-router' {
       path: '/sources'
       fullPath: '/sources'
       preLoaderRoute: typeof SourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboards': {
@@ -82,13 +156,42 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sources/new': {
+      id: '/sources/new'
+      path: '/new'
+      fullPath: '/sources/new'
+      preLoaderRoute: typeof SourcesNewRouteImport
+      parentRoute: typeof SourcesRoute
+    }
+    '/sources/$sourceId': {
+      id: '/sources/$sourceId'
+      path: '/$sourceId'
+      fullPath: '/sources/$sourceId'
+      preLoaderRoute: typeof SourcesSourceIdRouteImport
+      parentRoute: typeof SourcesRoute
+    }
   }
 }
+
+interface SourcesRouteChildren {
+  SourcesSourceIdRoute: typeof SourcesSourceIdRoute
+  SourcesNewRoute: typeof SourcesNewRoute
+}
+
+const SourcesRouteChildren: SourcesRouteChildren = {
+  SourcesSourceIdRoute: SourcesSourceIdRoute,
+  SourcesNewRoute: SourcesNewRoute,
+}
+
+const SourcesRouteWithChildren =
+  SourcesRoute._addFileChildren(SourcesRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardsRoute: DashboardsRoute,
-  SourcesRoute: SourcesRoute,
+  LoginRoute: LoginRoute,
+  RegisterRoute: RegisterRoute,
+  SourcesRoute: SourcesRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

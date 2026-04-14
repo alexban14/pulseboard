@@ -1,18 +1,46 @@
-import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
+import { createRootRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { useAuth } from "@/lib/auth";
 import "@/app.css";
 
 export const Route = createRootRoute({
   component: RootLayout,
 });
 
+const PUBLIC_ROUTES = ["/login", "/register"];
+
 function RootLayout() {
+  const { isAuthenticated, isLoading } = useAuth();
+  const pathname = window.location.pathname;
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <p className="text-sm text-gray-400">Loading...</p>
+      </div>
+    );
+  }
+
+  const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
+
+  if (!isAuthenticated && !isPublicRoute) {
+    return <RedirectToLogin />;
+  }
+
+  if (isAuthenticated && isPublicRoute) {
+    return <RedirectToHome />;
+  }
+
+  if (!isAuthenticated) {
+    return <Outlet />;
+  }
+
   return (
     <div className="flex h-screen bg-gray-50 text-gray-900">
       <aside className="flex w-64 flex-col border-r border-gray-200 bg-white">
         <div className="flex h-14 items-center border-b border-gray-200 px-6">
           <span className="text-lg font-semibold tracking-tight">
-            Analytics
+            Pulseboard
           </span>
         </div>
 
@@ -24,9 +52,7 @@ function RootLayout() {
           <NavLink to="/settings">Settings</NavLink>
         </nav>
 
-        <div className="border-t border-gray-200 px-4 py-3 text-xs text-gray-400">
-          v0.1.0
-        </div>
+        <SidebarFooter />
       </aside>
 
       <main className="flex-1 overflow-y-auto">
@@ -36,6 +62,39 @@ function RootLayout() {
       {import.meta.env.DEV && <TanStackRouterDevtools position="bottom-right" />}
     </div>
   );
+}
+
+function SidebarFooter() {
+  const { user, logout } = useAuth();
+
+  return (
+    <div className="border-t border-gray-200 px-4 py-3">
+      <div className="flex items-center justify-between">
+        <span className="truncate text-xs text-gray-500" title={user?.email ?? ""}>
+          {user?.email}
+        </span>
+        <button
+          type="button"
+          onClick={logout}
+          className="ml-2 shrink-0 rounded px-2 py-1 text-xs font-medium text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+        >
+          Logout
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RedirectToLogin() {
+  const navigate = useNavigate();
+  navigate({ to: "/login" });
+  return null;
+}
+
+function RedirectToHome() {
+  const navigate = useNavigate();
+  navigate({ to: "/" });
+  return null;
 }
 
 function NavLink({ to, children }: { to: string; children: React.ReactNode }) {

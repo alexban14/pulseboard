@@ -1,17 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
 });
 
 function HomePage() {
+  const { tenant, user } = useAuth();
+
   return (
     <div className="mx-auto max-w-5xl px-8 py-10">
       <h1 className="text-2xl font-bold tracking-tight">
-        Analytics Platform
+        Welcome to {tenant?.name ?? "Pulseboard"}
       </h1>
       <p className="mt-2 text-gray-500">
-        Welcome &mdash; connect a data source to get started.
+        Signed in as {user?.email}. Connect a data source to get started.
       </p>
 
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
