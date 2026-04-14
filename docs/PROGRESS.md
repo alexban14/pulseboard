@@ -20,9 +20,9 @@
 
 ### Connector System
 
-- [ ] 1.9 — Connector type registry: MySQL, PostgreSQL built-in
-- [ ] 1.10 — Connector service (NestJS): instance CRUD, test connection API
-- [ ] 1.11 — Schema discovery: database introspection (tables, columns, types, FKs)
+- [x] 1.9 — Connector type registry: MySQL, PostgreSQL, REST API, CSV built-in
+- [x] 1.10 — Connector service (NestJS): instance CRUD, test connection, AES-256-GCM encryption
+- [x] 1.11 — Schema discovery: database introspection (tables, columns, types, PKs, FKs, row counts)
 - [ ] 1.12 — Table selection UI: pick which tables to sync
 - [ ] 1.13 — Connector management UI pages (add/edit/test/monitor)
 
