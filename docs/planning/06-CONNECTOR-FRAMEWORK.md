@@ -451,6 +451,34 @@ class RESTAPIConnector(BaseConnector):
 
 ---
 
+## AI-Powered Schema Mapping
+
+For REST API and webhook connectors where the response structure isn't a flat table, the platform can use the **shared LLM provider framework** to intelligently map JSON responses to tabular schemas.
+
+```
+REST API returns:
+{
+  "data": {
+    "orders": [
+      { "id": 1, "customer": { "name": "Acme", "region": "EU" }, "items": [...], "total": 150.00 }
+    ],
+    "pagination": { "page": 1, "total": 50 }
+  }
+}
+
+LLM analyzes and suggests:
+  - Data array path: $.data.orders
+  - Flatten nested: customer.name → customer_name, customer.region → customer_region
+  - Ignore: pagination (metadata), items (nested array — offer as separate table)
+  - Columns: id (integer), customer_name (string), customer_region (string), total (decimal)
+```
+
+This uses the same LLM provider the tenant has configured for NLQ — no separate AI configuration needed. It's a one-time operation during connector setup (not per-sync), so cost is negligible.
+
+Available for Pro+ plans. Free/Starter tenants manually map JSON fields.
+
+---
+
 ## Built-in Connector Roadmap
 
 | Phase | Connectors |

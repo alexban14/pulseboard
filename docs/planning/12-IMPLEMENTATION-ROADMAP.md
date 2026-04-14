@@ -5,16 +5,16 @@
 ```
 Phase 1          Phase 2            Phase 3            Phase 4           Phase 5
 Platform Core    Dashboard +        Multi-Tenant       MigroNet          Growth
-                 Semantic Layer     + Auth              Validation
+                 Semantic Layer     + Auth + NLQ        Validation
 
-(6 weeks)        (8 weeks)          (6 weeks)          (4 weeks)         (ongoing)
+(6 weeks)        (8 weeks)          (8 weeks)          (4 weeks)         (ongoing)
 ────────────────┼──────────────────┼──────────────────┼─────────────────┼──────────
     ▲                  ▲                 ▲                 ▲                ▲
     │                  │                 │                 │                │
  Monorepo,          Dashboard UI,     Signup,           Onboard          Billing,
  connectors,        semantic layer,   OIDC auth,        MigroNet as      marketplace,
  schema discovery,  query builder,    plans, tenant     tenant #1,       embedded,
- ETL engine,        widgets,          admin,            validate with    AI features
+ ETL engine,        widgets,          admin, NLQ,       validate with    AI features
  basic pipeline     exports, alerts   branding          real data
 ```
 
@@ -118,7 +118,7 @@ interactive dashboards with drag-and-drop widgets.
 
 ---
 
-## Phase 3: Multi-Tenant + Auth (Weeks 15–20)
+## Phase 3: Multi-Tenant + Auth + NLQ (Weeks 15–22)
 
 **Goal**: Multiple tenants can sign up, configure independently, and be fully
 isolated. Auth supports multiple providers.
@@ -144,6 +144,25 @@ isolated. Auth supports multiple providers.
 | 3.15 | Dashboard auto-refresh | Configurable refresh interval |
 | 3.16 | Landing page / marketing site | Product positioning and signup funnel |
 
+### Natural Language Queries (Mega-Feature)
+
+| # | Task | Deliverable |
+|---|------|-------------|
+| 3.17 | LLM provider interface + factory + Groq implementation | Core NLQ infrastructure |
+| 3.18 | NLQ service: prompt construction from semantic model | Context assembly |
+| 3.19 | NLQ service: response parsing + validation + slug resolution | Validated output |
+| 3.20 | Anthropic + OpenAI fallback providers | Multi-provider support |
+| 3.21 | OpenRouter + Ollama + Custom endpoint providers | Full provider coverage |
+| 3.22 | Provider resolution chain + failover | Resilient pipeline |
+| 3.23 | Query cache (Redis, normalized exact match) | Fast repeat queries |
+| 3.24 | API endpoint: POST /api/nlq/query | Working E2E |
+| 3.25 | Frontend: NLQ input bar + result rendering | Type question → get chart |
+| 3.26 | Conversation support (multi-turn follow-ups) | Refine results |
+| 3.27 | BYOK tenant config UI | Tenant manages own keys |
+| 3.28 | Usage tracking + plan quota enforcement | Metered per tenant |
+| 3.29 | Suggested queries (per model) | Empty-state help |
+| 3.30 | "Save as Widget" + "Edit in Query Builder" from NLQ | Bridge to manual tools |
+
 ### Testing
 
 - **Tenant isolation tests**: create 2 tenants, verify zero data leakage
@@ -160,10 +179,14 @@ isolated. Auth supports multiple providers.
 - [ ] Plan limits enforced correctly
 - [ ] Onboarding wizard < 15 minutes to first dashboard
 - [ ] REST API connector works for arbitrary endpoints
+- [ ] NLQ: type question → get chart (E2E working)
+- [ ] NLQ: multi-provider failover tested (Groq → Anthropic → OpenAI)
+- [ ] NLQ: BYOK tenant config UI functional
+- [ ] NLQ: usage tracking and plan quota enforcement active
 
 ---
 
-## Phase 4: MigroNet Validation (Weeks 21–24)
+## Phase 4: MigroNet Validation (Weeks 23–26)
 
 **Goal**: Onboard MigroNet as tenant #1 using only generic platform features.
 No custom code — if something needs custom code, the platform needs a feature.
@@ -206,9 +229,9 @@ No custom code — if something needs custom code, the platform needs a feature.
 
 ---
 
-## Phase 5: Growth (Ongoing, Week 25+)
+## Phase 5: Growth (Ongoing, Week 27+)
 
-### Immediate (Weeks 25–30)
+### Immediate (Weeks 27–32)
 
 | Initiative | Description |
 |-----------|-------------|
@@ -219,7 +242,7 @@ No custom code — if something needs custom code, the platform needs a feature.
 | **Dashboard PDF export** | Export dashboards as PDF reports |
 | **Embeddable dashboards** | iframe + scoped tokens for Business tier |
 
-### Medium-Term (Weeks 31–40)
+### Medium-Term (Weeks 33–42)
 
 | Initiative | Description |
 |-----------|-------------|
@@ -228,7 +251,7 @@ No custom code — if something needs custom code, the platform needs a feature.
 | **White-label branding** | Custom logo, colors, domain for Business tier |
 | **Kubernetes migration** | Move from Docker Compose to k3s |
 | **AI-assisted modeling** | Auto-suggest metrics/dimensions from schema |
-| **Natural language queries** | "Show revenue by region this quarter" |
+| **NLQ enhancements** | Advanced conversation memory, auto-suggested follow-ups, per-model fine-tuning |
 | **Mobile dashboard viewer** | React Native or responsive web |
 
 ### Long-Term
@@ -250,7 +273,7 @@ No custom code — if something needs custom code, the platform needs a feature.
 |-------|----------|--------|------|
 | Phase 1 | 6 weeks | 1 (Alex) | Full-stack: NestJS services + Dagster pipelines + React UI |
 | Phase 2 | 8 weeks | 1 (Alex) | Full-stack: semantic layer + query engine + dashboard UI |
-| Phase 3 | 6 weeks | 1 (Alex) + part-time designer | Multi-tenant + auth + landing page |
+| Phase 3 | 8 weeks | 1 (Alex) + part-time designer | Multi-tenant + auth + NLQ + landing page |
 | Phase 4 | 4 weeks | 1 (Alex) + MigroNet team (testing) | Validation, bug fixes, UX iteration |
 | Phase 5 | Ongoing | 1–2 developers | Growth features + scale |
 
@@ -260,7 +283,7 @@ No custom code — if something needs custom code, the platform needs a feature.
 |------|-----------|
 | 6 | First data pipeline: connect DB → discover → sync → warehouse |
 | 14 | First interactive dashboard with semantic model |
-| 20 | Multi-tenant platform live with self-service signup |
-| 24 | MigroNet validated — team using dashboards daily |
-| 28 | First paying tenant (not MigroNet) |
-| 36 | 10 tenants, connector marketplace open |
+| 22 | Multi-tenant platform live with self-service signup + NLQ |
+| 26 | MigroNet validated — team using dashboards daily |
+| 30 | First paying tenant (not MigroNet) |
+| 38 | 10 tenants, connector marketplace open |

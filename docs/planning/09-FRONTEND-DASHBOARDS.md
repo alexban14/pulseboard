@@ -34,6 +34,7 @@
 │  │   Dash 3 │  │                                             │ │
 │  │          │  │                                             │ │
 │  │ 🔍 Query │  │                                             │ │
+│  │ 💬 NLQ   │  │                                             │ │
 │  │ 🧩 Models│  │                                             │ │
 │  │ 🔌 Sources│ │                                             │ │
 │  │ 🔔 Alerts│  │                                             │ │
@@ -56,6 +57,7 @@
 /queries                   → Saved query list
 /queries/new               → Visual query builder
 /queries/:id               → View/edit saved query
+/nlq                       → Natural language query (conversation UI)
 /models                    → Semantic model list
 /models/:id                → Visual model builder
 /sources                   → Data source list
@@ -70,6 +72,27 @@
 /settings/api-keys         → API key management
 /onboarding                → First-time setup wizard
 ```
+
+### NLQ Input Bar
+
+A persistent natural language input is available on every page:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  💬 Ask a question about your data...              [⏎ Ask]  │
+└──────────────────────────────────────────────────────────────┘
+```
+
+When the user submits a query:
+1. Shows a "Thinking..." skeleton
+2. NLQ service translates to QueryDefinition (~200-500ms)
+3. Query engine executes (~100-500ms)
+4. Widget renders with the suggested chart type
+5. User can refine ("break it down by month"), save as widget, or edit in query builder
+
+The NLQ result panel appears inline, reusing the existing WidgetRenderer component. The NLQ input bar supports conversation — follow-up queries refine the current result.
+
+See [14-NATURAL-LANGUAGE-QUERIES.md](../planning/14-NATURAL-LANGUAGE-QUERIES.md) for the full NLQ plan.
 
 ---
 

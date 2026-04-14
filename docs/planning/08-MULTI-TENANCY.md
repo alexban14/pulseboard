@@ -81,6 +81,15 @@ CREATE TABLE tenants (
     branding        JSONB DEFAULT '{}',            -- {logo, primaryColor, favicon}
     custom_domain   VARCHAR(255),
     auth_config     JSONB DEFAULT '{}',            -- {provider, clientId, issuer, ...}
+    -- settings JSONB includes NLQ/LLM provider configuration:
+    --   tenant.settings.nlq = {
+    --     provider: "groq" | "anthropic" | "openai" | "openrouter" | "ollama" | "custom",
+    --     model: "llama-3.3-70b-versatile",
+    --     apiKey: "encrypted-...",       // BYOK
+    --     baseUrl: "http://...",         // for ollama/custom
+    --     timeout: 10000,
+    --   }
+    -- This config is also used by AI-powered schema mapping in the connector framework.
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now(),
     deleted_at      TIMESTAMPTZ                    -- soft delete
@@ -216,4 +225,7 @@ async createConnector(@Body() dto: CreateConnectorDto) { ... }
 | API access | No | Read | Full | Full | Full |
 | Schema isolation | Schema | Schema | Schema | Schema | Schema + DB option |
 | Priority support | No | No | Yes | Yes | Dedicated + SLA |
+| NLQ queries/month | 0 | 50 | 500 | Unlimited | Unlimited |
+| NLQ provider options | - | Platform default | + BYOK | + Self-hosted + Custom | All + fine-tuning |
+| AI-assisted modeling | No | No | Yes | Yes | Yes |
 | Connector marketplace | Built-in | Built-in | + Premium | + Premium | + Custom |

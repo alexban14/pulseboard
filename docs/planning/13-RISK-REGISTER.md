@@ -18,6 +18,10 @@
 | R12 | **Performance at multi-tenant scale** — noisy neighbor problem | Medium | Medium | Per-tenant query timeouts. Redis cache reduces DB load. Materialized views handle dashboard queries. Monitor per-tenant resource usage. |
 | R13 | **GDPR/compliance burden** | Medium | Medium | EU hosting (Hetzner Germany). Schema-per-tenant enables clean deletion. DPA template for Business+. Invest in formal compliance only after revenue validates. |
 | R14 | **Generic REST connector UX** — configuring pagination, auth, response mapping is complex | High | Medium | Provide excellent defaults and auto-detection. Show sample response and let user click-to-map. Pre-built templates for common API patterns (cursor, offset, page). |
+| R15 | **LLM provider dependency** — external API downtime affects NLQ | Medium | Medium | Multi-provider failover chain (Groq → Anthropic → OpenAI). Ollama self-hosted as air-gapped fallback. NLQ is never the only way to query — visual query builder always works. |
+| R16 | **Prompt injection via NLQ** — malicious user input tries to manipulate LLM | Medium | Low | LLM output is validated against semantic model (only known metric/dimension slugs accepted). LLM never generates SQL directly. Structured JSON output format constrains the response space. |
+| R17 | **NLQ cost runaway** — unexpected LLM usage spikes | Low | Medium | Per-tenant monthly quotas enforced by plan. Cache reduces actual LLM calls by ~40%. Cost per query is ~$0.001 (Groq) to ~$0.002 (Haiku). Platform-level budget alerts. |
+| R18 | **LLM accuracy degradation** — model updates change NLQ quality | Medium | Medium | Accuracy test suite (~100 queries with expected outputs) runs against each provider/model before deployment. Version pinning for LLM models. Confidence scoring surfaces low-quality results for fallback. |
 
 ---
 
@@ -40,6 +44,9 @@
 | D13 | **Self-hosted on Proxmox (Phase 1) → Talos K8s on bare-metal Mini PCs (Phase 2)** | 2026-04-11 | Leverages existing Proxmox cluster, zero cloud costs. Talos OS for K8s is immutable, minimal attack surface, perfect for bare-metal. 3 Mini PCs give HA + horizontal scaling. | Hetzner Cloud, AWS EKS, DigitalOcean K8s |
 | D14 | **Longhorn for K8s persistent storage** | 2026-04-11 | Replicated block storage across bare-metal nodes. Simpler than Ceph, sufficient for 3-node cluster. | Rook-Ceph (overkill), OpenEBS LocalPV (no replication), NFS (SPOF) |
 | D15 | **CloudNativePG for PostgreSQL HA on K8s** | 2026-04-11 | Operator-managed PG with automatic failover, backup, and TimescaleDB support. | Manual PG setup, Patroni (more complex), CrunchyData (heavier) |
+| D16 | **OpenAI chat/completions as universal LLM protocol** | 2026-04-14 | De facto standard — Groq, OpenRouter, Ollama, and most providers already speak it. Custom tenant endpoints only need to implement one format. | Custom protocol per provider, gRPC |
+| D17 | **Groq as primary NLQ provider** | 2026-04-14 | Fastest inference (~100-200ms for small prompts). Open models (Llama 3) are free to serve. Cheapest per-query cost. Anthropic Haiku as fallback for accuracy. | Anthropic-first (slower, more expensive), OpenAI-first |
+| D18 | **Interface + Factory pattern for LLM providers** | 2026-04-14 | Inspired by migrobrain LLM interaction service. Adding new providers requires zero changes to NLQ service. Tenants can plug in custom endpoints. | Hardcoded provider switch, single provider only |
 
 ---
 

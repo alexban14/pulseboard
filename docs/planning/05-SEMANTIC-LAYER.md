@@ -332,27 +332,50 @@ The user never sees or writes this SQL. They just pick metrics and dimensions.
 
 ---
 
-## AI-Assisted Modeling (Phase 3+)
+## AI-Assisted Modeling
 
-When a tenant has completed schema discovery, the platform can suggest:
+When a tenant completes schema discovery, the platform uses the **shared LLM provider framework** (see [04-ARCHITECTURE.md](04-ARCHITECTURE.md) and [14-NATURAL-LANGUAGE-QUERIES.md](14-NATURAL-LANGUAGE-QUERIES.md)) to suggest model elements.
 
-1. **Auto-detect metrics**: Numeric columns with names like `amount`, `total`,
-   `price`, `cost`, `revenue` → suggest SUM aggregations.
+The same LLM provider interface used by NLQ powers these features — tenants who configure a custom provider (Groq, Ollama, etc.) for NLQ automatically get AI-assisted modeling through the same provider.
 
-2. **Auto-detect dimensions**: String columns with names like `status`, `type`,
-   `category`, `region`, `country` → suggest categorical dimensions.
+### Auto-Suggest Features
 
-3. **Auto-detect time dimensions**: Date/datetime columns → suggest temporal
-   dimensions with appropriate granularity.
+1. **Auto-detect metrics**: Numeric columns with names like `amount`, `total`, `price`, `cost`, `revenue` → suggest SUM aggregations.
 
-4. **Auto-detect relationships**: Beyond FK constraints, use naming conventions
-   (`user_id` → `users.id`) and value analysis.
+2. **Auto-detect dimensions**: String columns with names like `status`, `type`, `category`, `region`, `country` → suggest categorical dimensions.
 
-5. **Natural language queries**: "Show me revenue by region for 2025" →
-   automatically selects the right metric, dimension, and filter.
+3. **Auto-detect time dimensions**: Date/datetime columns → suggest temporal dimensions with appropriate granularity.
 
-This is a **progressive enhancement** — the core platform works without AI.
-AI features are added in later phases as a differentiator.
+4. **Auto-detect relationships**: Beyond FK constraints, use naming conventions (`user_id` → `users.id`) and LLM analysis of column names and sample data.
+
+5. **Natural language model building**: "Create a model for tracking sales performance" → LLM analyzes available tables and suggests a complete model with metrics, dimensions, and joins.
+
+6. **Metric description generation**: Given a metric definition like `SUM(orders.total)`, generate a human-readable description: "Total revenue from all orders".
+
+### How It Uses the LLM Provider
+
+```
+Schema discovery result + table sample data
+    │
+    ▼
+LLM Provider (same interface as NLQ)
+    │ Prompt: "Given these tables and columns, suggest metrics and dimensions"
+    ▼
+Suggested model elements (validated against schema)
+    │
+    ▼
+Presented to user in the model builder UI for review/approval
+```
+
+The LLM provider is resolved from tenant config — if the tenant uses Groq for NLQ, the same Groq provider is used here. If they use a self-hosted Ollama, model suggestions also go through Ollama.
+
+### Natural Language Queries
+
+Users can bypass the visual query builder entirely by typing natural language questions. The NLQ service translates these into `QueryDefinition` objects using the same semantic model as context.
+
+See [14-NATURAL-LANGUAGE-QUERIES.md](14-NATURAL-LANGUAGE-QUERIES.md) for the comprehensive NLQ plan.
+
+This is a **progressive enhancement** — the core platform works without AI. All AI-assisted features are optional and gated by plan (Pro+).
 
 ---
 

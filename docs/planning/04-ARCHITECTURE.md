@@ -15,19 +15,19 @@
                               │  Tenant Resolution       │
                               └────────────┬────────────┘
                                            │
-         ┌─────────────┬──────────────┬────┴────┬──────────────┬──────────────┐
-         │             │              │         │              │              │
-   ┌─────▼─────┐ ┌─────▼─────┐ ┌─────▼─────┐ ┌─▼────────┐ ┌──▼───────┐ ┌───▼──────┐
-   │  Connector │ │ Semantic  │ │  Query    │ │Dashboard │ │ Tenant   │ │  Alert   │
-   │  Service   │ │ Layer Svc │ │  Engine   │ │ Service  │ │ Service  │ │  Service │
-   │            │ │           │ │           │ │          │ │          │ │          │
-   │ - Registry │ │ - Models  │ │ - Translate│ │- CRUD   │ │- Signup  │ │- Rules   │
-   │ - Config   │ │ - Metrics │ │ - Cache   │ │- Widgets │ │- Users   │ │- Evaluate│
-   │ - Schema   │ │ - Dims    │ │ - Execute │ │- Layout  │ │- Billing │ │- Notify  │
-   │   discovery│ │ - Joins   │ │ - Export  │ │- Share   │ │- Plans   │ │- Schedule│
-   └─────┬──────┘ └─────┬─────┘ └─────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘
-         │               │             │             │            │            │
-         │    ┌──────────┴─────────────┴─────────────┴────────────┴────────────┘
+         ┌─────────────┬──────────────┬────┴────┬──────────────┬──────────────┬──────────────┐
+         │             │              │         │              │              │              │
+   ┌─────▼─────┐ ┌─────▼─────┐ ┌─────▼─────┐ ┌─▼────────┐ ┌──▼───────┐ ┌───▼──────┐ ┌───▼──────┐
+   │  Connector │ │ Semantic  │ │  Query    │ │Dashboard │ │ Tenant   │ │  Alert   │ │   NLQ    │
+   │  Service   │ │ Layer Svc │ │  Engine   │ │ Service  │ │ Service  │ │  Service │ │  Service │
+   │            │ │           │ │           │ │          │ │          │ │          │ │          │
+   │ - Registry │ │ - Models  │ │ - Translate│ │- CRUD   │ │- Signup  │ │- Rules   │ │- NL→Query│
+   │ - Config   │ │ - Metrics │ │ - Cache   │ │- Widgets │ │- Users   │ │- Evaluate│ │- LLM Rtr│
+   │ - Schema   │ │ - Dims    │ │ - Execute │ │- Layout  │ │- Billing │ │- Notify  │ │- Cache   │
+   │   discovery│ │ - Joins   │ │ - Export  │ │- Share   │ │- Plans   │ │- Schedule│ │- Usage   │
+   └─────┬──────┘ └─────┬─────┘ └─────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘
+         │               │             │             │            │            │            │
+         │    ┌──────────┴─────────────┴─────────────┴────────────┴────────────┴────────────┘
          │    │
    ┌─────▼────▼──────────────────────────────────────────┐
    │               PostgreSQL + TimescaleDB               │
@@ -63,6 +63,13 @@
         │ PG, etc │ │ Webhook │ │ Sheets  │
         └─────────┘ └─────────┘ └─────────┘
              External Data Sources
+
+                    ┌──────────────────────────────────────┐
+                    │          LLM Providers                │
+                    │                                       │
+                    │  Anthropic · OpenAI · Groq            │
+                    │  OpenRouter · Ollama · Custom         │
+                    └──────────────────────────────────────┘
 ```
 
 ---
@@ -214,6 +221,39 @@ Aggregates:
   AlertEvent       → EventId, AlertId, triggeredAt, metricValue, notifiedVia
 ```
 
+### BC8: Natural Language Queries
+
+**Responsibility**: Translate natural language into QueryDefinitions via LLM providers.
+
+```
+Aggregates:
+  NLQConversation  → ConversationId, TenantId, UserId, turns[], currentQuery
+  NLQQuery         → QueryId, TenantId, input, normalizedInput, response, provider, model, latency, confidence
+  NLQUsage         → TenantId, month, queryCount, cacheHits, totalCost
+
+Domain Events:
+  NLQQueryProcessed, NLQCacheHit, NLQProviderFailed, NLQQuotaExceeded
+
+Value Objects:
+  LLMProviderConfig (provider, model, apiKey, baseUrl, timeout)
+  NLQResponse (queryDefinition, chartType, title, confidence, clarification?)
+```
+
+### Shared Infrastructure: LLM Provider Framework
+
+The LLM provider framework is **shared infrastructure** — not owned by any single bounded context. It's used by:
+- **NLQ Service** — translate natural language to QueryDefinitions
+- **Semantic Layer** — AI-assisted model building (auto-suggest metrics/dimensions)
+- **Connector Framework** — smart schema mapping for REST API responses
+- **Future** — anomaly detection, forecasting, data quality suggestions
+
+Architecture follows the **Interface + Factory** pattern (inspired by migrobrain):
+- `LLMProvider` interface with `chat()`, `estimateCost()`, `healthCheck()`
+- `LLMProviderFactory` resolves provider at runtime from tenant config
+- 6 built-in providers: Anthropic, OpenAI, Groq, OpenRouter, Ollama, Custom Endpoint
+- All providers use OpenAI chat/completions as the standard protocol
+- Provider resolution: request override → tenant config → platform default → fallback chain
+
 ---
 
 ## CQRS Implementation
@@ -311,6 +351,7 @@ analytics-platform/
 │   ├── dashboard-service/        # NestJS — dashboard/widget CRUD, sharing
 │   ├── tenant-service/           # NestJS — tenants, users, billing, plans
 │   ├── alert-service/            # NestJS — alert rules, evaluation, notification
+│   ├── (nlq integrated in api-gateway initially, splits to nlq-service later)
 │   └── web/                      # React SPA — dashboard UI
 │
 ├── packages/
@@ -320,6 +361,7 @@ analytics-platform/
 │   ├── shared-events/            # NATS event types and client wrapper
 │   ├── shared-connectors/        # Connector type definitions, config schemas
 │   ├── shared-query/             # Query definition types, SQL builder utilities
+│   ├── shared-llm/               # LLM provider interface, factory, built-in providers
 │   └── shared-ui/                # React component library (charts, grid, widgets)
 │
 ├── pipelines/                    # Python — Dagster ETL engine
