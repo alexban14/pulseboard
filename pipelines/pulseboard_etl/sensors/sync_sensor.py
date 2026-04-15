@@ -1,7 +1,12 @@
 """Sensor that checks for connectors due for sync and launches jobs."""
 
 import os
+import time
 from dagster import sensor, RunRequest, SensorEvaluationContext, DefaultSensorStatus
+
+
+# Minimum interval between syncs for the same connector (seconds)
+MIN_SYNC_INTERVAL = 15 * 60  # 15 minutes
 
 
 @sensor(
@@ -10,10 +15,14 @@ from dagster import sensor, RunRequest, SensorEvaluationContext, DefaultSensorSt
     default_status=DefaultSensorStatus.RUNNING,
 )
 def sync_scheduler_sensor(context: SensorEvaluationContext):
-    """Every 60 seconds, check for connectors with sync tables and trigger jobs.
+    """Every 60 seconds, check for connectors due for sync.
 
-    For now, this triggers ALL healthy connectors with selected tables.
-    Later, we'll add cron-based scheduling per connector.
+    A connector is due if:
+    - It has status 'healthy'
+    - It has at least one sync table selected
+    - It hasn't been synced in the last MIN_SYNC_INTERVAL seconds
+
+    Run key uses timestamp to ensure Dagster doesn't deduplicate.
     """
     from ..resources.platform_db import PlatformDBResource
 
@@ -25,8 +34,30 @@ def sync_scheduler_sensor(context: SensorEvaluationContext):
     platform = PlatformDBResource(database_url=db_url)
     connectors = platform.get_due_connectors()
 
+    # Parse cursor as JSON dict of connector_id → last_triggered_timestamp
+    import json
+    last_triggered: dict = {}
+    if context.cursor:
+        try:
+            parsed = json.loads(context.cursor)
+            if isinstance(parsed, dict):
+                last_triggered = parsed
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+
+    now = time.time()
+    triggered_any = False
+
     for conn in connectors:
-        run_key = f"sync-{conn['id']}-{context.cursor or '0'}"
+        connector_id = conn["id"]
+
+        # Skip if synced recently
+        last_time = last_triggered.get(connector_id, 0)
+        if now - last_time < MIN_SYNC_INTERVAL:
+            continue
+
+        # Use timestamp in run key to avoid deduplication
+        run_key = f"sync-{connector_id}-{int(now)}"
 
         yield RunRequest(
             run_key=run_key,
@@ -34,7 +65,7 @@ def sync_scheduler_sensor(context: SensorEvaluationContext):
                 "ops": {
                     "sync_connector": {
                         "config": {
-                            "connector_id": conn["id"],
+                            "connector_id": connector_id,
                             "tenant_id": conn["tenant_id"],
                         }
                     }
@@ -45,10 +76,15 @@ def sync_scheduler_sensor(context: SensorEvaluationContext):
                 },
             },
             tags={
-                "connector_id": conn["id"],
+                "connector_id": connector_id,
                 "tenant_id": conn["tenant_id"],
                 "connector_type": conn["connector_type_id"],
             },
         )
 
-    context.update_cursor(str(context.cursor or 0))
+        last_triggered[connector_id] = now
+        triggered_any = True
+        context.log.info(f"Triggered sync for connector {connector_id}")
+
+    if triggered_any:
+        context.update_cursor(json.dumps(last_triggered))
