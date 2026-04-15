@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "nest build",
-    "dev": "nest start --watch",
+    "dev": "nest start --watch --exec bun",
     "start:prod": "bun dist/main.js",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "test": "jest",

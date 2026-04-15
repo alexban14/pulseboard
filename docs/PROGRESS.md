@@ -38,6 +38,16 @@
 
 - [x] 1.19 — CSV/Excel upload connector + manual sync trigger
 
+### Object Storage — [Full plan](planning/15-OBJECT-STORAGE.md)
+
+- [ ] 1.20 — Create @pulseboard/shared-storage package (interface + factory)
+- [ ] 1.21 — S3-compatible provider (MinIO, AWS S3, Backblaze B2)
+- [ ] 1.22 — Local filesystem provider (dev fallback)
+- [ ] 1.23 — Add MinIO to Docker Compose (port 9040/9041)
+- [ ] 1.24 — stored_files table in Drizzle schema
+- [ ] 1.25 — Wire storage into CSV upload (save file + record in DB)
+- [ ] 1.26 — Download API endpoint with signed URLs
+
 ---
 
 ## Phase 2: Dashboard + Semantic Layer (Target: 8 weeks)

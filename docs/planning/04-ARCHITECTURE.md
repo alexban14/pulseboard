@@ -71,6 +71,13 @@
                     │  Anthropic · OpenAI · Groq            │
                     │  OpenRouter · Ollama · Custom         │
                     └──────────────────────────────────────┘
+
+                    ┌──────────────────────────────────────┐
+                    │          Object Storage               │
+                    │                                       │
+                    │  MinIO (self-hosted S3) · AWS S3      │
+                    │  Backblaze B2 · Azure Blob            │
+                    └──────────────────────────────────────┘
 ```
 
 ---
@@ -406,6 +413,7 @@ analytics-platform/
 │   ├── shared-connectors/        # Connector type definitions, config schemas
 │   ├── shared-query/             # Query definition types, SQL builder utilities
 │   ├── shared-llm/               # LLM provider interface, factory, built-in providers
+│   ├── shared-storage/           # Object storage interface, factory, S3/Azure/local providers
 │   └── shared-ui/                # React component library (charts, grid, widgets)
 │
 ├── pipelines/                    # Python — Dagster ETL engine

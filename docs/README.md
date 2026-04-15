@@ -12,6 +12,7 @@ System design, decisions, and deep dives into each subsystem.
 - [Authentication](architecture/authentication.md) — JWT, OIDC, multi-provider auth per tenant
 - [Database Schema](architecture/database-schema.md) — Drizzle schema, ULID IDs, table relationships
 - [WebSocket Gateway](architecture/websocket-gateway.md) — Real-time push (Socket.IO, NATS bridge, NLQ streaming)
+- [Object Storage](architecture/object-storage.md) — Driver-based file storage (MinIO, S3, Azure, Backblaze)
 - [Decision Log](architecture/decisions.md) — ADRs (Architecture Decision Records)
 
 ## Guides

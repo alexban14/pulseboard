@@ -90,6 +90,15 @@ CREATE TABLE tenants (
     --     timeout: 10000,
     --   }
     -- This config is also used by AI-powered schema mapping in the connector framework.
+    -- tenant.settings.storage can override the platform's default storage provider.
+    -- Enterprise tenants can bring their own S3/Azure bucket:
+    --   tenant.settings.storage = {
+    --     provider: "s3" | "azure" | "b2",
+    --     bucket: "acme-analytics",
+    --     region: "eu-central-1",
+    --     accessKeyId: "encrypted-...",
+    --     secretAccessKey: "encrypted-...",
+    --   }
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now(),
     deleted_at      TIMESTAMPTZ                    -- soft delete
@@ -229,3 +238,4 @@ async createConnector(@Body() dto: CreateConnectorDto) { ... }
 | NLQ provider options | - | Platform default | + BYOK | + Self-hosted + Custom | All + fine-tuning |
 | AI-assisted modeling | No | No | Yes | Yes | Yes |
 | Connector marketplace | Built-in | Built-in | + Premium | + Premium | + Custom |
+| Storage per tenant | 100MB | 1GB | 10GB | 50GB | Unlimited |

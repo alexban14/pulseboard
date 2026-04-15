@@ -90,7 +90,14 @@ export class UploadService {
         const colNames = parsed.columns.map((c) => `"${c.name}"`).join(', ');
 
         for (const row of batch) {
-          const values = parsed.columns.map((c) => row[c.name] ?? null);
+          const values = parsed.columns.map((c) => {
+            const val = row[c.name];
+            // Empty strings → null for non-string types (PG rejects "" for int/decimal/bool/date)
+            if (val === '' || val === undefined || val === null) {
+              return null;
+            }
+            return val;
+          });
           const placeholders = values.map((_, idx) => `$${idx + 1}`).join(', ');
 
           await sql.unsafe(
