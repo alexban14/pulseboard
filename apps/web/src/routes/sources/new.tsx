@@ -342,7 +342,7 @@ function ConfigureStep({
             >
               {testResult.success
                 ? `Connected${testResult.latencyMs ? ` (${testResult.latencyMs}ms)` : ""}${testResult.serverVersion ? ` — ${testResult.serverVersion}` : ""}`
-                : testResult.message}
+                : testResult.message || "Connection failed — check your settings"}
             </span>
           )}
           {testError && !testResult && (

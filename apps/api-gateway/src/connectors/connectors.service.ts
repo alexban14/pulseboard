@@ -187,6 +187,11 @@ export class ConnectorsService {
       };
     } catch (error: any) {
       const latencyMs = Date.now() - startTime;
+      const message =
+        error.message ||
+        error.sqlMessage ||
+        error.code ||
+        (typeof error === 'string' ? error : 'Connection failed — check host, port, and credentials');
 
       if (connectorId) {
         await this.db
@@ -194,14 +199,14 @@ export class ConnectorsService {
           .set({
             status: 'error',
             lastTestedAt: new Date(),
-            lastTestError: error.message,
+            lastTestError: message,
           })
           .where(eq(connectorInstances.id, connectorId));
       }
 
       return {
         success: false,
-        message: error.message ?? 'Connection failed',
+        message,
         latencyMs,
       };
     }
