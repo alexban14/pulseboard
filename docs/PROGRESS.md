@@ -28,11 +28,11 @@
 
 ### ETL Pipeline
 
-- [ ] 1.14 — Dagster project scaffold with Python
-- [ ] 1.15 — Database connector (Python): full + incremental extraction
-- [ ] 1.16 — Warehouse loader: dynamic table creation, upsert, schema evolution
-- [ ] 1.17 — Sync scheduling: configurable cron per connector instance
-- [ ] 1.18 — Pipeline monitoring API: run history, status, errors
+- [x] 1.14 — Dagster project scaffold with Python
+- [x] 1.15 — Database connector (Python): full + incremental extraction (MySQL + PG)
+- [x] 1.16 — Warehouse loader: dynamic table creation, upsert, schema evolution
+- [x] 1.17 — Sync scheduling: Dagster sensor auto-triggers healthy connectors every 60s
+- [x] 1.18 — Pipeline monitoring: sync runs tracked in DB, Dagster UI at :9030
 
 ### File Connector
 

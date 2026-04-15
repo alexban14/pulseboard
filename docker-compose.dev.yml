@@ -93,6 +93,46 @@ services:
     environment:
       VITE_API_URL: ${VITE_API_URL:-http://localhost:9010/api}
 
+  # ── Dagster ETL (webserver + daemon) ──
+
+  dagster-webserver:
+    build:
+      context: ./pipelines
+    command: dagster-webserver -h 0.0.0.0 -p 3070 -w workspace.yaml
+    ports:
+      - "${DAGSTER_PORT:-9030}:3070"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./pipelines:/app
+      - dagster_home_dev:/app/dagster_home
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:-pulseboard_dev}@postgres:5432/${POSTGRES_DB:-pulseboard}
+      DAGSTER_PG_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:-pulseboard_dev}@postgres:5432/${POSTGRES_DB:-pulseboard}
+      DAGSTER_HOME: /app/dagster_home
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  dagster-daemon:
+    build:
+      context: ./pipelines
+    command: dagster-daemon run -w workspace.yaml
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./pipelines:/app
+      - dagster_home_dev:/app/dagster_home
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:-pulseboard_dev}@postgres:5432/${POSTGRES_DB:-pulseboard}
+      DAGSTER_PG_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:-pulseboard_dev}@postgres:5432/${POSTGRES_DB:-pulseboard}
+      DAGSTER_HOME: /app/dagster_home
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # ── Cloudflare Tunnel (expose dev to the internet) ──
 
   cloudflared:
@@ -109,3 +149,4 @@ volumes:
   pgdata_dev:
   natsdata_dev:
   node_modules_dev:
+  dagster_home_dev:
