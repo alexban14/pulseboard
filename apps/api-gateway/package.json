@@ -31,15 +31,19 @@
     "rxjs": "^7.8.1",
     "@pulseboard/shared-types": "workspace:*",
     "@pulseboard/shared-db": "workspace:*",
+    "csv-parse": "^5.6.0",
     "drizzle-orm": "^0.40.0",
+    "multer": "^1.4.5-lts.1",
     "mysql2": "^3.12.0",
-    "postgres": "^3.4.5"
+    "postgres": "^3.4.5",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.0",
     "@nestjs/testing": "^10.4.0",
     "@types/bcrypt": "^5.0.2",
     "@types/express": "^5.0.0",
+    "@types/multer": "^1.4.12",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.10.0",
     "@types/passport-jwt": "^4.0.1",

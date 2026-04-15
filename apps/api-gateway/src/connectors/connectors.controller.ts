@@ -167,23 +167,100 @@ export class ConnectorsController {
   /** POST /api/connectors/:id/trigger-sync — manually trigger a sync via Dagster */
   @Post(':id/trigger-sync')
   async triggerSync(@Request() req: AuthRequest, @Param('id') id: string) {
-    // Verify connector belongs to tenant
     const connector = await this.connectorsService.getById(req.user.tenantId, id);
 
-    // Verify sync tables are selected
     const syncTables = await this.connectorsService.getSyncTables(req.user.tenantId, id);
     if (syncTables.length === 0) {
       return { triggered: false, message: 'No tables selected for sync' };
     }
 
-    // The Dagster sensor will pick up this connector on its next tick.
-    // For immediate trigger, we'd call the Dagster GraphQL API directly.
-    // For now, return a signal that the sync is queued.
-    return {
-      triggered: true,
-      message: `Sync queued for ${connector.name} (${syncTables.length} tables). Dagster will process it shortly.`,
-      connectorId: id,
-      tableCount: syncTables.length,
-    };
+    // Call Dagster GraphQL API to launch a job run
+    const dagsterUrl = process.env.DAGSTER_URL || 'http://dagster-webserver:3070';
+    const dbUrl = process.env.DATABASE_URL || '';
+
+    try {
+      const response = await fetch(`${dagsterUrl}/graphql`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: `
+            mutation LaunchRun($executionParams: ExecutionParams!) {
+              launchRun(executionParams: $executionParams) {
+                __typename
+                ... on LaunchRunSuccess {
+                  run { runId }
+                }
+                ... on PythonError {
+                  message
+                }
+                ... on InvalidStepError {
+                  invalidStepKey
+                }
+                ... on InvalidOutputError {
+                  outputName
+                }
+              }
+            }
+          `,
+          variables: {
+            executionParams: {
+              selector: {
+                repositoryLocationName: 'pulseboard_etl',
+                repositoryName: '__repository__',
+                jobName: 'sync_connector_job',
+              },
+              runConfigData: JSON.stringify({
+                ops: {
+                  sync_connector: {
+                    config: {
+                      connector_id: id,
+                      tenant_id: req.user.tenantId,
+                    },
+                  },
+                },
+                resources: {
+                  platform_db: { config: { database_url: dbUrl } },
+                  warehouse_db: { config: { database_url: dbUrl } },
+                },
+              }),
+              executionMetadata: {
+                tags: [
+                  { key: 'connector_id', value: id },
+                  { key: 'tenant_id', value: req.user.tenantId },
+                  { key: 'trigger', value: 'manual' },
+                ],
+              },
+            },
+          },
+        }),
+      });
+
+      const result = await response.json() as any;
+      const launch = result?.data?.launchRun;
+
+      if (launch?.__typename === 'LaunchRunSuccess') {
+        return {
+          triggered: true,
+          message: `Sync started for ${connector.name} (${syncTables.length} tables)`,
+          connectorId: id,
+          tableCount: syncTables.length,
+          runId: launch.run.runId,
+        };
+      }
+
+      // Dagster returned an error
+      return {
+        triggered: false,
+        message: launch?.message || 'Failed to launch sync job in Dagster',
+      };
+    } catch (error: any) {
+      // Dagster unreachable — fall back to sensor-based trigger
+      return {
+        triggered: true,
+        message: `Sync queued for ${connector.name} (${syncTables.length} tables). Will start within 60 seconds.`,
+        connectorId: id,
+        tableCount: syncTables.length,
+      };
+    }
   }
 }

@@ -210,3 +210,69 @@ export function useDeleteConnector() {
     },
   });
 }
+
+export interface TriggerSyncResult {
+  triggered: boolean;
+  message: string;
+  connectorId: string;
+  tableCount: number;
+}
+
+export function useTriggerSync() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (connectorId: string) =>
+      apiClient.post<TriggerSyncResult>(
+        `/connectors/${connectorId}/trigger-sync`,
+      ),
+    onSuccess: (_data, connectorId) => {
+      qc.invalidateQueries({ queryKey: connectorKeys.detail(connectorId) });
+      qc.invalidateQueries({ queryKey: connectorKeys.syncRuns(connectorId) });
+    },
+  });
+}
+
+export interface UploadResult {
+  success: boolean;
+  tableName: string;
+  schema: string;
+  columns: { name: string; type: string }[];
+  rowCount: number;
+  durationMs: number;
+}
+
+export function useUploadFile(connectorId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const token = localStorage.getItem("auth_token");
+      const baseUrl =
+        import.meta.env.VITE_API_URL ?? "http://localhost:3000/api";
+
+      const res = await fetch(
+        `${baseUrl}/connectors/${connectorId}/upload`,
+        {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: formData,
+        },
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.message ?? "Upload failed");
+      }
+
+      return res.json() as Promise<UploadResult>;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: connectorKeys.detail(connectorId) });
+      qc.invalidateQueries({ queryKey: connectorKeys.all });
+      qc.invalidateQueries({ queryKey: connectorKeys.syncTables(connectorId) });
+      qc.invalidateQueries({ queryKey: connectorKeys.syncRuns(connectorId) });
+    },
+  });
+}

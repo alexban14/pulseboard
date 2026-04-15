@@ -129,6 +129,7 @@ services:
       DAGSTER_PG_URL: postgresql://${POSTGRES_USER:-pulseboard}:${POSTGRES_PASSWORD:-pulseboard_dev}@postgres:5432/${POSTGRES_DB:-pulseboard}
       DAGSTER_HOME: /app/dagster_home
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+      SYNC_MIN_INTERVAL_SECONDS: ${SYNC_MIN_INTERVAL_SECONDS:-21600}
     depends_on:
       postgres:
         condition: service_healthy

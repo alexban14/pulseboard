@@ -6,7 +6,8 @@ from dagster import sensor, RunRequest, SensorEvaluationContext, DefaultSensorSt
 
 
 # Minimum interval between syncs for the same connector (seconds)
-MIN_SYNC_INTERVAL = 15 * 60  # 15 minutes
+# Configurable via SYNC_MIN_INTERVAL_SECONDS env var
+MIN_SYNC_INTERVAL = int(os.environ.get("SYNC_MIN_INTERVAL_SECONDS", 6 * 60 * 60))  # default: 6 hours
 
 
 @sensor(

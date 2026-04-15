@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import {
   useConnector,
   useConnectorTypes,
@@ -8,9 +8,13 @@ import {
   useSelectTables,
   useSyncTables,
   useSyncRuns,
+  useUploadFile,
+  useTriggerSync,
   type DiscoveredTable,
   type SyncTable,
   type TestConnectionResult,
+  type UploadResult,
+  type TriggerSyncResult,
 } from "@/lib/hooks/use-connectors.js";
 import { Badge } from "@/components/ui/badge.js";
 import { Spinner } from "@/components/ui/spinner.js";
@@ -38,6 +42,8 @@ function SourceDetailPage() {
   const testMutation = useTestStoredConnection();
   const discoverMutation = useDiscoverSchema(sourceId);
   const selectMutation = useSelectTables(sourceId);
+  const triggerSyncMutation = useTriggerSync();
+  const [syncResult, setSyncResult] = useState<TriggerSyncResult | null>(null);
 
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(
     null,
@@ -141,27 +147,54 @@ function SourceDetailPage() {
         {connector.syncSchedule && ` \u00b7 Schedule: ${connector.syncSchedule}`}
       </p>
 
-      {/* Actions */}
-      <div className="mt-6 flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={handleTest}
-          disabled={testMutation.isPending}
-          className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
+      {/* Actions — different for CSV vs database connectors */}
+      {connector.connectorTypeId === 'csv' ? (
+        <FileUploadZone connectorId={sourceId} />
+      ) : (
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={handleTest}
+            disabled={testMutation.isPending}
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
+          >
+            {testMutation.isPending && <Spinner className="h-4 w-4" />}
+            Test Connection
+          </button>
+          <button
+            type="button"
+            onClick={handleDiscover}
+            disabled={discoverMutation.isPending}
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
+          >
+            {discoverMutation.isPending && <Spinner className="h-4 w-4" />}
+            Discover Schema
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSyncResult(null);
+              triggerSyncMutation.mutate(sourceId, {
+                onSuccess: (data) => setSyncResult(data),
+              });
+            }}
+            disabled={triggerSyncMutation.isPending}
+            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+          >
+            {triggerSyncMutation.isPending && <Spinner className="h-4 w-4" />}
+            Sync Now
+          </button>
+        </div>
+      )}
+
+      {/* Sync trigger result */}
+      {syncResult && (
+        <div
+          className={`mt-4 rounded-md p-3 text-sm ${syncResult.triggered ? "bg-blue-50 text-blue-800" : "bg-yellow-50 text-yellow-800"}`}
         >
-          {testMutation.isPending && <Spinner className="h-4 w-4" />}
-          Test Connection
-        </button>
-        <button
-          type="button"
-          onClick={handleDiscover}
-          disabled={discoverMutation.isPending}
-          className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
-        >
-          {discoverMutation.isPending && <Spinner className="h-4 w-4" />}
-          Discover Schema
-        </button>
-      </div>
+          {syncResult.message}
+        </div>
+      )}
 
       {/* Test result */}
       {testResult && (
@@ -383,6 +416,119 @@ function DiscoveredTableCard({
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// File upload zone (CSV connectors)
+// ---------------------------------------------------------------------------
+
+function FileUploadZone({ connectorId }: { connectorId: string }) {
+  const uploadMutation = useUploadFile(connectorId);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleFile = useCallback(
+    (file: File) => {
+      uploadMutation.mutate(file);
+    },
+    [uploadMutation],
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOver(false);
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    },
+    [handleFile],
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOver(false);
+  }, []);
+
+  return (
+    <div className="mt-6 space-y-4">
+      {/* Drop zone */}
+      <div
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onClick={() => fileInputRef.current?.click()}
+        className={`cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+          dragOver
+            ? "border-blue-400 bg-blue-50"
+            : "border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100"
+        }`}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,.tsv,.xlsx,.xls"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleFile(file);
+            e.target.value = "";
+          }}
+        />
+
+        {uploadMutation.isPending ? (
+          <div className="flex flex-col items-center gap-2">
+            <Spinner className="h-8 w-8" />
+            <p className="text-sm font-medium text-gray-700">Uploading and processing...</p>
+          </div>
+        ) : (
+          <>
+            <p className="text-2xl">📄</p>
+            <p className="mt-2 text-sm font-medium text-gray-700">
+              Drop a CSV or Excel file here, or click to browse
+            </p>
+            <p className="mt-1 text-xs text-gray-400">
+              Supports .csv, .tsv, .xlsx, .xls — max 50 MB
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* Upload result */}
+      {uploadMutation.isSuccess && uploadMutation.data && (
+        <div className="rounded-md bg-green-50 p-4 text-sm text-green-800">
+          <p className="font-medium">Upload successful</p>
+          <p className="mt-1">
+            Table: <code className="font-mono">{uploadMutation.data.tableName}</code>
+            {" — "}
+            {uploadMutation.data.rowCount.toLocaleString()} rows loaded in{" "}
+            {(uploadMutation.data.durationMs / 1000).toFixed(1)}s
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {uploadMutation.data.columns.map((col) => (
+              <span
+                key={col.name}
+                className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs"
+              >
+                {col.name}
+                <span className="text-green-600">({col.type})</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Upload error */}
+      {uploadMutation.isError && (
+        <div className="rounded-md bg-red-50 p-3 text-sm text-red-800">
+          {(uploadMutation.error as Error).message || "Upload failed"}
         </div>
       )}
     </div>

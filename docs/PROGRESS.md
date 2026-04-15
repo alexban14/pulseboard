@@ -36,7 +36,7 @@
 
 ### File Connector
 
-- [ ] 1.19 — CSV/Excel upload connector
+- [x] 1.19 — CSV/Excel upload connector + manual sync trigger
 
 ---
 
