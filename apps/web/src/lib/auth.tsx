@@ -118,6 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(TOKEN_KEY);
     setUser(null);
     setTenant(null);
+    window.location.href = "/login";
   }, []);
 
   const value = useMemo<AuthContextValue>(
