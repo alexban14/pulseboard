@@ -195,15 +195,32 @@ function SourceDetailPage() {
             <h2 className="text-lg font-semibold text-gray-900">
               Discovered Tables ({discovered.length})
             </h2>
-            <button
-              type="button"
-              onClick={handleSaveSelection}
-              disabled={selectMutation.isPending || selectedTables.size === 0}
-              className="inline-flex items-center gap-2 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-800 disabled:opacity-50"
-            >
-              {selectMutation.isPending && <Spinner className="h-4 w-4" />}
-              Save Selection ({selectedTables.size})
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedTables.size === discovered.length) {
+                    setSelectedTables(new Map());
+                  } else {
+                    const all = new Map<string, string | undefined>();
+                    for (const t of discovered) all.set(t.name, undefined);
+                    setSelectedTables(all);
+                  }
+                }}
+                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+              >
+                {selectedTables.size === discovered.length ? "Deselect All" : "Select All"}
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveSelection}
+                disabled={selectMutation.isPending || selectedTables.size === 0}
+                className="inline-flex items-center gap-2 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-gray-800 disabled:opacity-50"
+              >
+                {selectMutation.isPending && <Spinner className="h-4 w-4" />}
+                Save Selection ({selectedTables.size})
+              </button>
+            </div>
           </div>
 
           {selectMutation.isSuccess && (
