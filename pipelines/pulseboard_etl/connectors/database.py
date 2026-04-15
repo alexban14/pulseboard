@@ -37,21 +37,36 @@ class DatabaseExtractor:
             self._engine = create_engine(url, pool_size=2, pool_pre_ping=True)
         return self._engine
 
+    def _rows_to_dataframe(self, columns: list[str], rows: list) -> pl.DataFrame:
+        """Convert SQL result rows to a Polars DataFrame with all-string schema.
+
+        MySQL/MariaDB returns mixed types (NULL vs int vs datetime in the same
+        column across rows). Polars infers types from early rows and fails when
+        later rows have a different type. Fix: cast everything to string.
+        The warehouse loader handles the correct PG types via its column defs.
+        """
+        if not rows:
+            return pl.DataFrame(schema={col: pl.Utf8 for col in columns})
+
+        data = {col: [] for col in columns}
+        for row in rows:
+            for col, val in zip(columns, row):
+                data[col].append(str(val) if val is not None else None)
+
+        return pl.DataFrame(data)
+
     def extract_full(self, table_name: str) -> pl.DataFrame:
         """Full extraction — SELECT * from the source table."""
         engine = self._get_engine()
         logger.info(f"Full extract: {table_name}")
 
+        quote = "`" if self.connector_type == "mysql" else '"'
         with engine.connect() as conn:
-            result = conn.execute(text(f"SELECT * FROM `{table_name}`" if self.connector_type == "mysql" else f'SELECT * FROM "{table_name}"'))
+            result = conn.execute(text(f"SELECT * FROM {quote}{table_name}{quote}"))
             columns = list(result.keys())
             rows = result.fetchall()
 
-        if not rows:
-            return pl.DataFrame(schema={col: pl.Utf8 for col in columns})
-
-        data = [dict(zip(columns, row)) for row in rows]
-        return pl.DataFrame(data)
+        return self._rows_to_dataframe(columns, rows)
 
     def extract_incremental(
         self,
@@ -80,11 +95,7 @@ class DatabaseExtractor:
             columns = list(result.keys())
             rows = result.fetchall()
 
-        if not rows:
-            return pl.DataFrame(schema={col: pl.Utf8 for col in columns})
-
-        data = [dict(zip(columns, row)) for row in rows]
-        return pl.DataFrame(data)
+        return self._rows_to_dataframe(columns, rows)
 
     def get_column_info(self, table_name: str) -> list[dict]:
         """Get column names and types for a source table (for warehouse table creation)."""
