@@ -8,6 +8,15 @@ import { Badge } from "@/components/ui/badge.js";
 import { Spinner } from "@/components/ui/spinner.js";
 import { useState } from "react";
 
+const CONNECTOR_ICONS: Record<string, string> = {
+  mysql: "🐬",
+  postgresql: "🐘",
+  csv: "📄",
+  "rest-api": "🌐",
+  webhook: "🔗",
+  mongodb: "🍃",
+};
+
 export const Route = createFileRoute("/sources")({
   component: SourcesLayout,
 });
@@ -94,11 +103,9 @@ function SourcesListPage() {
 
                 <div className="relative z-10 flex items-start justify-between">
                   <div className="flex items-center gap-2">
-                    {ct?.icon && (
-                      <span className="text-lg" aria-hidden="true">
-                        {ct.icon}
-                      </span>
-                    )}
+                    <span className="text-lg" aria-hidden="true">
+                      {CONNECTOR_ICONS[c.connectorTypeId] ?? "📊"}
+                    </span>
                     <h3 className="text-sm font-semibold text-gray-900">
                       {c.name}
                     </h3>

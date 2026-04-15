@@ -6,12 +6,13 @@ import { apiClient } from "@/lib/api-client.js";
 // ---------------------------------------------------------------------------
 
 export interface ConfigField {
-  name: string;
+  key: string;
   label: string;
-  type: "text" | "number" | "password" | "boolean" | "select";
+  type: "text" | "number" | "password" | "boolean" | "select" | "textarea";
   required?: boolean;
+  default?: unknown;
   placeholder?: string;
-  defaultValue?: unknown;
+  helpText?: string;
   options?: { label: string; value: string }[];
 }
 

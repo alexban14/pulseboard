@@ -14,6 +14,20 @@ export const Route = createFileRoute("/sources/new")({
   component: NewSourceWizard,
 });
 
+// Icon mapping — connector type id → emoji
+const CONNECTOR_ICONS: Record<string, string> = {
+  mysql: "🐬",
+  postgresql: "🐘",
+  csv: "📄",
+  "rest-api": "🌐",
+  webhook: "🔗",
+  mongodb: "🍃",
+};
+
+function getIcon(typeId: string): string {
+  return CONNECTOR_ICONS[typeId] ?? "📊";
+}
+
 type Step = "select-type" | "configure" | "review";
 
 function NewSourceWizard() {
@@ -24,31 +38,38 @@ function NewSourceWizard() {
   const [selectedType, setSelectedType] = useState<ConnectorType | null>(null);
   const [config, setConfig] = useState<Record<string, unknown>>({});
   const [name, setName] = useState("");
+  const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
 
   const testMutation = useTestConnection();
   const createMutation = useCreateConnector();
 
-  const [testResult, setTestResult] = useState<TestConnectionResult | null>(
-    null,
-  );
-
-  // -------------------------------------------------------------------------
-  // Step 1: Select type
-  // -------------------------------------------------------------------------
-
+  // Step 1 → 2: select type, reset all state
   function handleSelectType(ct: ConnectorType) {
     setSelectedType(ct);
     setConfig(buildDefaults(ct.configFields));
-    setName(`My ${ct.name}`);
+    setName("");
+    setTestResult(null);
+    testMutation.reset();
+    createMutation.reset();
     setStep("configure");
   }
 
-  // -------------------------------------------------------------------------
-  // Step 2: Configure
-  // -------------------------------------------------------------------------
+  // Go back: reset errors
+  function handleBack() {
+    if (step === "configure") {
+      setTestResult(null);
+      testMutation.reset();
+      setStep("select-type");
+    } else if (step === "review") {
+      createMutation.reset();
+      setStep("configure");
+    } else {
+      navigate({ to: "/sources" });
+    }
+  }
 
-  function handleFieldChange(fieldName: string, value: unknown) {
-    setConfig((prev) => ({ ...prev, [fieldName]: value }));
+  function handleFieldChange(fieldKey: string, value: unknown) {
+    setConfig((prev) => ({ ...prev, [fieldKey]: value }));
   }
 
   function handleTestInline() {
@@ -60,14 +81,11 @@ function NewSourceWizard() {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Step 3: Review & Create
-  // -------------------------------------------------------------------------
-
   function handleCreate() {
     if (!selectedType) return;
+    const connectorName = name.trim() || `My ${selectedType.name}`;
     createMutation.mutate(
-      { connectorTypeId: selectedType.id, name, config },
+      { connectorTypeId: selectedType.id, name: connectorName, config },
       {
         onSuccess: (data) => {
           navigate({
@@ -79,16 +97,15 @@ function NewSourceWizard() {
     );
   }
 
+  const supportsTest = selectedType
+    ? selectedType.category === "database" || selectedType.category === "api"
+    : false;
+
   return (
     <div className="mx-auto max-w-3xl px-8 py-10">
-      {/* Breadcrumb */}
       <button
         type="button"
-        onClick={() => {
-          if (step === "configure") setStep("select-type");
-          else if (step === "review") setStep("configure");
-          else navigate({ to: "/sources" });
-        }}
+        onClick={handleBack}
         className="mb-4 text-xs font-medium text-gray-500 hover:text-gray-700"
       >
         &larr;{" "}
@@ -101,16 +118,12 @@ function NewSourceWizard() {
 
       <h1 className="text-2xl font-bold tracking-tight">Add Data Source</h1>
 
-      {/* Step indicator */}
       <div className="mt-4 flex items-center gap-2 text-xs text-gray-400">
         <StepDot active={step === "select-type"} done={step !== "select-type"}>
           1. Select Type
         </StepDot>
         <span>&mdash;</span>
-        <StepDot
-          active={step === "configure"}
-          done={step === "review"}
-        >
+        <StepDot active={step === "configure"} done={step === "review"}>
           2. Configure
         </StepDot>
         <span>&mdash;</span>
@@ -119,7 +132,6 @@ function NewSourceWizard() {
         </StepDot>
       </div>
 
-      {/* Step content */}
       {step === "select-type" && (
         <SelectTypeStep
           types={types ?? []}
@@ -135,10 +147,10 @@ function NewSourceWizard() {
           name={name}
           onNameChange={setName}
           onFieldChange={handleFieldChange}
-          onTest={handleTestInline}
+          onTest={supportsTest ? handleTestInline : undefined}
           testPending={testMutation.isPending}
           testResult={testResult}
-          testError={testMutation.isError}
+          testError={testMutation.isError ? (testMutation.error as Error).message : null}
           onNext={() => setStep("review")}
         />
       )}
@@ -146,7 +158,7 @@ function NewSourceWizard() {
       {step === "review" && selectedType && (
         <ReviewStep
           connectorType={selectedType}
-          name={name}
+          name={name.trim() || `My ${selectedType.name}`}
           config={config}
           onCreate={handleCreate}
           creating={createMutation.isPending}
@@ -160,10 +172,6 @@ function NewSourceWizard() {
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Step components
-// ---------------------------------------------------------------------------
 
 function StepDot({
   active,
@@ -214,7 +222,6 @@ function SelectTypeStep({
     );
   }
 
-  // Group by category
   const categories = new Map<string, ConnectorType[]>();
   for (const t of types) {
     const cat = t.category || "Other";
@@ -238,7 +245,7 @@ function SelectTypeStep({
                 className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-4 text-left shadow-sm transition-all hover:border-gray-400 hover:shadow-md"
               >
                 <span className="text-2xl" aria-hidden="true">
-                  {ct.icon}
+                  {getIcon(ct.id)}
                 </span>
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-gray-900">
@@ -274,24 +281,23 @@ function ConfigureStep({
   name: string;
   onNameChange: (v: string) => void;
   onFieldChange: (field: string, value: unknown) => void;
-  onTest: () => void;
+  onTest?: () => void;
   testPending: boolean;
   testResult: TestConnectionResult | null;
-  testError: boolean;
+  testError: string | null;
   onNext: () => void;
 }) {
   return (
     <div className="mt-6 space-y-6">
       <div className="flex items-center gap-3">
         <span className="text-2xl" aria-hidden="true">
-          {connectorType.icon}
+          {getIcon(connectorType.id)}
         </span>
         <span className="text-sm font-semibold text-gray-900">
           {connectorType.name}
         </span>
       </div>
 
-      {/* Connection name */}
       <div>
         <label
           htmlFor="conn-name"
@@ -304,47 +310,48 @@ function ConfigureStep({
           type="text"
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
+          placeholder={`My ${connectorType.name}`}
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
         />
       </div>
 
-      {/* Dynamic fields */}
       {connectorType.configFields.map((field) => (
         <DynamicField
-          key={field.name}
+          key={field.key}
           field={field}
-          value={config[field.name]}
-          onChange={(v) => onFieldChange(field.name, v)}
+          value={config[field.key]}
+          onChange={(v) => onFieldChange(field.key, v)}
         />
       ))}
 
-      {/* Test */}
-      <div className="flex items-center gap-4">
-        <button
-          type="button"
-          onClick={onTest}
-          disabled={testPending}
-          className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
-        >
-          {testPending && <Spinner className="h-4 w-4" />}
-          Test Connection
-        </button>
-
-        {testResult && (
-          <span
-            className={`text-sm font-medium ${testResult.success ? "text-green-700" : "text-red-700"}`}
+      {onTest && (
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={onTest}
+            disabled={testPending}
+            className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50"
           >
-            {testResult.success
-              ? `Connected (${testResult.latencyMs}ms)`
-              : testResult.message}
-          </span>
-        )}
-        {testError && (
-          <span className="text-sm font-medium text-red-700">
-            Test request failed
-          </span>
-        )}
-      </div>
+            {testPending && <Spinner className="h-4 w-4" />}
+            Test Connection
+          </button>
+
+          {testResult && (
+            <span
+              className={`text-sm font-medium ${testResult.success ? "text-green-700" : "text-red-700"}`}
+            >
+              {testResult.success
+                ? `Connected${testResult.latencyMs ? ` (${testResult.latencyMs}ms)` : ""}${testResult.serverVersion ? ` — ${testResult.serverVersion}` : ""}`
+                : testResult.message}
+            </span>
+          )}
+          {testError && !testResult && (
+            <span className="text-sm font-medium text-red-700">
+              {testError}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="flex justify-end pt-4 border-t border-gray-200">
         <button
@@ -379,7 +386,7 @@ function ReviewStep({
       <div className="rounded-lg border border-gray-200 bg-white p-5">
         <div className="flex items-center gap-3">
           <span className="text-2xl" aria-hidden="true">
-            {connectorType.icon}
+            {getIcon(connectorType.id)}
           </span>
           <div>
             <p className="text-sm font-semibold text-gray-900">{name}</p>
@@ -391,17 +398,17 @@ function ReviewStep({
           {connectorType.configFields
             .filter((f) => f.type !== "password")
             .map((f) => (
-              <div key={f.name}>
+              <div key={f.key}>
                 <dt className="text-xs font-medium text-gray-500">{f.label}</dt>
                 <dd className="text-gray-900">
-                  {String(config[f.name] ?? "\u2014")}
+                  {String(config[f.key] ?? "\u2014")}
                 </dd>
               </div>
             ))}
           {connectorType.configFields
             .filter((f) => f.type === "password")
             .map((f) => (
-              <div key={f.name}>
+              <div key={f.key}>
                 <dt className="text-xs font-medium text-gray-500">{f.label}</dt>
                 <dd className="text-gray-900">********</dd>
               </div>
@@ -430,10 +437,6 @@ function ReviewStep({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Dynamic form field renderer
-// ---------------------------------------------------------------------------
-
 function DynamicField({
   field,
   value,
@@ -443,7 +446,7 @@ function DynamicField({
   value: unknown;
   onChange: (v: unknown) => void;
 }) {
-  const id = `field-${field.name}`;
+  const id = `field-${field.key}`;
 
   if (field.type === "boolean") {
     return (
@@ -467,8 +470,10 @@ function DynamicField({
         </button>
         <label htmlFor={id} className="text-sm font-medium text-gray-700">
           {field.label}
-          {field.required && <span className="text-red-500"> *</span>}
         </label>
+        {field.helpText && (
+          <span className="text-xs text-gray-400">{field.helpText}</span>
+        )}
       </div>
     );
   }
@@ -493,11 +498,13 @@ function DynamicField({
             </option>
           ))}
         </select>
+        {field.helpText && (
+          <p className="mt-1 text-xs text-gray-400">{field.helpText}</p>
+        )}
       </div>
     );
   }
 
-  // text, number, password
   return (
     <div>
       <label htmlFor={id} className="block text-sm font-medium text-gray-700">
@@ -508,6 +515,7 @@ function DynamicField({
         id={id}
         type={field.type === "password" ? "password" : field.type === "number" ? "number" : "text"}
         placeholder={field.placeholder}
+        required={field.required}
         value={String(value ?? "")}
         onChange={(e) =>
           onChange(
@@ -520,23 +528,22 @@ function DynamicField({
         }
         className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
       />
+      {field.helpText && (
+        <p className="mt-1 text-xs text-gray-400">{field.helpText}</p>
+      )}
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function buildDefaults(fields: ConfigField[]): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const f of fields) {
-    if (f.defaultValue !== undefined) {
-      out[f.name] = f.defaultValue;
+    if (f.default !== undefined) {
+      out[f.key] = f.default;
     } else if (f.type === "boolean") {
-      out[f.name] = false;
+      out[f.key] = false;
     } else {
-      out[f.name] = "";
+      out[f.key] = "";
     }
   }
   return out;
