@@ -98,6 +98,17 @@ interactive dashboards with drag-and-drop widgets.
 | 2.21 | Alert service: threshold rules on metrics, email notifications | Alerts fire on threshold breaches |
 | 2.22 | Scheduled reports: cron-based query → email delivery | Reports arrive in inbox |
 
+### Real-Time Infrastructure
+
+| # | Task | Deliverable |
+|---|------|-------------|
+| 2.23 | WebSocket gateway in API Gateway (@nestjs/websockets + Socket.IO) | WS server running alongside HTTP |
+| 2.24 | JWT auth on WS handshake, tenant-scoped rooms | Secure, isolated real-time |
+| 2.25 | NATS → WebSocket bridge: subscribe to events, push to rooms | Pipeline events reach the browser |
+| 2.26 | Pipeline sync progress events | Live progress in source detail page |
+| 2.27 | Dashboard cache invalidation on sync completion | Auto-refresh without polling |
+| 2.28 | Frontend: useRealtimeSocket hook + connection indicator | Client-side real-time |
+
 ### Testing
 
 - Unit tests: query translation (semantic → SQL), aggregation generation
@@ -162,6 +173,7 @@ isolated. Auth supports multiple providers.
 | 3.28 | Usage tracking + plan quota enforcement | Metered per tenant |
 | 3.29 | Suggested queries (per model) | Empty-state help |
 | 3.30 | "Save as Widget" + "Edit in Query Builder" from NLQ | Bridge to manual tools |
+| 3.31 | NLQ WebSocket streaming: stream LLM tokens via WS gateway | Progressive token rendering in NLQ input bar |
 
 ### Testing
 

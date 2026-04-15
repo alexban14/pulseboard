@@ -67,14 +67,23 @@
 - [ ] 2.15 — Global dashboard filters (date range, dimension filters)
 - [ ] 2.16 — Additional widget types: area, donut, funnel, heatmap, gauge, scatter
 
+### Real-Time (WebSocket Gateway)
+
+- [ ] 2.17 — WebSocket gateway in api-gateway (@nestjs/websockets + Socket.IO)
+- [ ] 2.18 — Auth: JWT validation on WS handshake, tenant-scoped rooms
+- [ ] 2.19 — NATS → WebSocket bridge: subscribe to NATS events, push to connected clients
+- [ ] 2.20 — Pipeline sync progress: live rows synced, status changes pushed to frontend
+- [ ] 2.21 — Dashboard live refresh: push data invalidation on sync completion (replaces polling)
+- [ ] 2.22 — Frontend: useRealtimeSocket hook + connection status indicator
+
 ### Reporting & Alerts
 
-- [ ] 2.17 — Query export: Excel, CSV download
-- [ ] 2.18 — Pre-computed aggregations (materialized views)
-- [ ] 2.19 — Aggregation refresh on sync completion
-- [ ] 2.20 — Dashboard sharing: link-based, role-based
-- [ ] 2.21 — Alert service: threshold rules, email notifications
-- [ ] 2.22 — Scheduled reports: cron → email delivery
+- [ ] 2.23 — Query export: Excel, CSV download
+- [ ] 2.24 — Pre-computed aggregations (materialized views)
+- [ ] 2.25 — Aggregation refresh on sync completion
+- [ ] 2.26 — Dashboard sharing: link-based, role-based
+- [ ] 2.27 — Alert service: threshold rules, email notifications
+- [ ] 2.28 — Scheduled reports: cron → email delivery
 
 ---
 
@@ -108,16 +117,17 @@
 - [ ] 3.21 — Retry logic (validation failure → retry with error context)
 - [ ] 3.22 — Query cache (Redis, normalized exact match)
 - [ ] 3.23 — API endpoint: POST /api/nlq/query
-- [ ] 3.24 — Frontend: NLQ input bar + result rendering
-- [ ] 3.25 — Conversation support (multi-turn follow-ups)
-- [ ] 3.26 — Clarification UI (low confidence → ask user)
-- [ ] 3.27 — Suggested queries (per model, cached)
-- [ ] 3.28 — "Save as Widget" + "Edit in Query Builder" from NLQ results
-- [ ] 3.29 — OpenAI fallback provider
-- [ ] 3.30 — Ollama self-hosted provider
-- [ ] 3.31 — BYOK (Bring Your Own Key) tenant config
-- [ ] 3.32 — Usage tracking + plan quota enforcement
-- [ ] 3.33 — NLQ query history table + API
+- [ ] 3.24 — NLQ WebSocket streaming: stream LLM tokens to frontend via WS gateway
+- [ ] 3.25 — Frontend: NLQ input bar + streaming result rendering
+- [ ] 3.26 — Conversation support (multi-turn follow-ups)
+- [ ] 3.27 — Clarification UI (low confidence → ask user)
+- [ ] 3.28 — Suggested queries (per model, cached)
+- [ ] 3.29 — "Save as Widget" + "Edit in Query Builder" from NLQ results
+- [ ] 3.30 — OpenAI fallback provider
+- [ ] 3.31 — Ollama self-hosted provider
+- [ ] 3.32 — BYOK (Bring Your Own Key) tenant config
+- [ ] 3.33 — Usage tracking + plan quota enforcement
+- [ ] 3.34 — NLQ query history table + API
 
 ---
 

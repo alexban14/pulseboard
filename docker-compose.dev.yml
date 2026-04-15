@@ -91,6 +91,18 @@ services:
     environment:
       VITE_API_URL: ${VITE_API_URL:-http://localhost:9010/api}
 
+  # ── Cloudflare Tunnel (expose dev to the internet) ──
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: pulseboard-cloudflared
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN}"
+    networks:
+      - default
+
 volumes:
   pgdata_dev:
   natsdata_dev:

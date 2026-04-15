@@ -22,6 +22,7 @@
 | R16 | **Prompt injection via NLQ** — malicious user input tries to manipulate LLM | Medium | Low | LLM output is validated against semantic model (only known metric/dimension slugs accepted). LLM never generates SQL directly. Structured JSON output format constrains the response space. |
 | R17 | **NLQ cost runaway** — unexpected LLM usage spikes | Low | Medium | Per-tenant monthly quotas enforced by plan. Cache reduces actual LLM calls by ~40%. Cost per query is ~$0.001 (Groq) to ~$0.002 (Haiku). Platform-level budget alerts. |
 | R18 | **LLM accuracy degradation** — model updates change NLQ quality | Medium | Medium | Accuracy test suite (~100 queries with expected outputs) runs against each provider/model before deployment. Version pinning for LLM models. Confidence scoring surfaces low-quality results for fallback. |
+| R19 | **WebSocket scalability** — many concurrent connections per node | Low | Medium | Socket.IO handles ~10K connections per process. At our scale (<1000 concurrent users), single gateway is sufficient. NATS handles the fan-out. If needed, Socket.IO sticky sessions with Redis adapter for multi-process. |
 
 ---
 
@@ -47,6 +48,8 @@
 | D16 | **OpenAI chat/completions as universal LLM protocol** | 2026-04-14 | De facto standard — Groq, OpenRouter, Ollama, and most providers already speak it. Custom tenant endpoints only need to implement one format. | Custom protocol per provider, gRPC |
 | D17 | **Groq as primary NLQ provider** | 2026-04-14 | Fastest inference (~100-200ms for small prompts). Open models (Llama 3) are free to serve. Cheapest per-query cost. Anthropic Haiku as fallback for accuracy. | Anthropic-first (slower, more expensive), OpenAI-first |
 | D18 | **Interface + Factory pattern for LLM providers** | 2026-04-14 | Inspired by migrobrain LLM interaction service. Adding new providers requires zero changes to NLQ service. Tenants can plug in custom endpoints. | Hardcoded provider switch, single provider only |
+| D19 | **Socket.IO over raw WebSocket** | 2026-04-15 | Auto-reconnect, rooms (tenant isolation), fallback to long-polling, namespaces, binary support. Raw WS would need all of this built manually. | Raw WebSocket (lighter but no rooms/reconnect), SSE (no bidirectional, no rooms) |
+| D20 | **WebSocket in API Gateway, not separate service** | 2026-04-15 | Fewer moving parts. NestJS supports WS gateways natively in the same process. Split to separate service only if WS connections become a bottleneck. | Separate WS microservice (more infra to manage) |
 
 ---
 

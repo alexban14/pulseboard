@@ -12,7 +12,8 @@
                               │     API Gateway          │
                               │  (NestJS/Bun + Nginx)    │
                               │  Auth, Rate Limit,       │
-                              │  Tenant Resolution       │
+                              │  Tenant Resolution,      │
+                              │  WS Gateway (Socket.IO)  │
                               └────────────┬────────────┘
                                            │
          ┌─────────────┬──────────────┬────┴────┬──────────────┬──────────────┬──────────────┐
@@ -239,6 +240,49 @@ Value Objects:
   NLQResponse (queryDefinition, chartType, title, confidence, clarification?)
 ```
 
+### Shared Infrastructure: WebSocket Gateway
+
+The API Gateway includes a **WebSocket gateway** (@nestjs/websockets + Socket.IO) that provides real-time push to connected frontend clients. It is not a separate service — it runs inside the API Gateway process.
+
+**Architecture:**
+
+```
+NATS JetStream (events from pipelines, services)
+    │
+    ▼
+WebSocket Gateway (in API Gateway)
+    │ subscribes to NATS topics
+    │ authenticates via JWT on handshake
+    │ scopes rooms by tenant_id
+    │
+    ▼
+Connected Browser Clients (Socket.IO)
+```
+
+**Event Types Pushed via WebSocket:**
+
+| Event | Source | Consumer | Phase |
+|-------|--------|----------|-------|
+| `sync:progress` | Dagster pipeline | Source detail page | Phase 2 |
+| `sync:completed` | Dagster pipeline | Dashboard (cache invalidation) | Phase 2 |
+| `sync:failed` | Dagster pipeline | Source detail page, alerts | Phase 2 |
+| `nlq:token` | NLQ service (LLM stream) | NLQ input bar | Phase 3 |
+| `nlq:complete` | NLQ service | NLQ input bar | Phase 3 |
+| `alert:triggered` | Alert service | Toast notification | Phase 3 |
+| `schema:discovered` | Connector service | Source detail page | Phase 2 |
+
+**Tenant Isolation:** Each tenant gets a Socket.IO room (`tenant:{tenantId}`). Events are only broadcast to the tenant's room. JWT is validated on the WebSocket handshake — unauthenticated connections are rejected.
+
+**Frontend Hook:**
+```typescript
+// useRealtimeSocket() — connects on mount, auto-reconnects, scoped to tenant
+const { isConnected, on, off } = useRealtimeSocket();
+
+on('sync:progress', (data) => {
+  // update progress bar
+});
+```
+
 ### Shared Infrastructure: LLM Provider Framework
 
 The LLM provider framework is **shared infrastructure** — not owned by any single bounded context. It's used by:
@@ -358,7 +402,7 @@ analytics-platform/
 │   ├── shared-types/             # Zod schemas, DTOs, enums shared across apps
 │   ├── shared-db/                # Drizzle schema (platform tables), tenant schema helpers
 │   ├── shared-auth/              # JWT/OIDC, tenant context middleware, RLS helpers
-│   ├── shared-events/            # NATS event types and client wrapper
+│   ├── shared-events/            # NATS event types, WebSocket event types, and client wrapper
 │   ├── shared-connectors/        # Connector type definitions, config schemas
 │   ├── shared-query/             # Query definition types, SQL builder utilities
 │   ├── shared-llm/               # LLM provider interface, factory, built-in providers

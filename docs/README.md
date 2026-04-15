@@ -11,6 +11,7 @@ System design, decisions, and deep dives into each subsystem.
 - [Multi-Tenancy](architecture/multi-tenancy.md) — Tenant isolation, resolution, plan gating
 - [Authentication](architecture/authentication.md) — JWT, OIDC, multi-provider auth per tenant
 - [Database Schema](architecture/database-schema.md) — Drizzle schema, ULID IDs, table relationships
+- [WebSocket Gateway](architecture/websocket-gateway.md) — Real-time push (Socket.IO, NATS bridge, NLQ streaming)
 - [Decision Log](architecture/decisions.md) — ADRs (Architecture Decision Records)
 
 ## Guides
@@ -25,5 +26,5 @@ How-to guides for development and operations.
 
 Original project plans, requirements, and roadmaps.
 
-- [Planning docs](planning/) — 14 numbered documents covering market positioning, requirements, technology evaluation, architecture plans, and implementation roadmap
+- [Planning docs](planning/) — 15 numbered documents covering market positioning, requirements, technology evaluation, architecture plans, and implementation roadmap
 - [Progress Tracker](PROGRESS.md) — Phase-by-phase implementation checklist

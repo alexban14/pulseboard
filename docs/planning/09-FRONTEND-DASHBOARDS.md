@@ -369,3 +369,31 @@ Embed tokens are:
   permissions: ["view"],                  // view only, no edit
 }
 ```
+
+---
+
+## Real-Time Updates (WebSocket)
+
+The frontend maintains a persistent WebSocket connection to the API Gateway via Socket.IO. This replaces polling for most real-time needs.
+
+**Connection lifecycle:**
+1. After login, `useRealtimeSocket()` hook establishes a Socket.IO connection
+2. JWT token sent on handshake for authentication
+3. Server joins the client to their tenant's room (`tenant:{tenantId}`)
+4. Events are pushed server -> client (no client polling needed)
+5. Auto-reconnect with exponential backoff on disconnect
+
+**Dashboard auto-refresh:**
+When a pipeline sync completes, the server pushes `sync:completed` with the affected connector ID. Dashboard widgets that source data from that connector automatically refetch (TanStack Query cache invalidation triggered by the WebSocket event).
+
+```typescript
+// In DashboardGrid or a global listener
+on('sync:completed', ({ connectorId }) => {
+  queryClient.invalidateQueries({ queryKey: ['widget-data'] });
+});
+```
+
+**NLQ token streaming:**
+LLM responses stream token-by-token via `nlq:token` events, rendering progressively like ChatGPT. The `nlq:complete` event signals the final QueryDefinition is ready for chart rendering.
+
+**Fallback:** If WebSocket is unavailable (corporate proxies, etc.), the frontend falls back to TanStack Query polling (30s interval). The `useRealtimeSocket()` hook exposes `isConnected` so the UI can show a connection status indicator.
