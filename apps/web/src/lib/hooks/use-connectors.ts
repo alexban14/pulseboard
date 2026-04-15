@@ -167,9 +167,15 @@ export function useTestConnection() {
 }
 
 export function useTestStoredConnection() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (connectorId: string) =>
       apiClient.post<TestConnectionResult>(`/connectors/${connectorId}/test`),
+    onSuccess: (_data, connectorId) => {
+      // Refresh connector detail to update status badge
+      queryClient.invalidateQueries({ queryKey: connectorKeys.detail(connectorId) });
+      queryClient.invalidateQueries({ queryKey: connectorKeys.all });
+    },
   });
 }
 

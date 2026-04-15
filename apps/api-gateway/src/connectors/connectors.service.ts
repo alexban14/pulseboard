@@ -177,14 +177,30 @@ export class ConnectorsService {
     const startTime = Date.now();
 
     try {
+      let result: TestConnectionResult;
+
       if (typeId === 'mysql' || typeId === 'postgresql') {
-        return await this.testDatabaseConnection(typeId, config, startTime);
+        result = await this.testDatabaseConnection(typeId, config, startTime);
+      } else {
+        result = {
+          success: false,
+          message: `Test connection not yet implemented for type: ${typeId}`,
+        };
       }
 
-      return {
-        success: false,
-        message: `Test connection not yet implemented for type: ${typeId}`,
-      };
+      // Update stored connector status on success
+      if (connectorId && result.success) {
+        await this.db
+          .update(connectorInstances)
+          .set({
+            status: 'healthy',
+            lastTestedAt: new Date(),
+            lastTestError: null,
+          })
+          .where(eq(connectorInstances.id, connectorId));
+      }
+
+      return result;
     } catch (error: any) {
       const latencyMs = Date.now() - startTime;
       const message =

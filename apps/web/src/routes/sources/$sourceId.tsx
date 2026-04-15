@@ -15,6 +15,15 @@ import {
 import { Badge } from "@/components/ui/badge.js";
 import { Spinner } from "@/components/ui/spinner.js";
 
+const CONNECTOR_ICONS: Record<string, string> = {
+  mysql: "🐬",
+  postgresql: "🐘",
+  csv: "📄",
+  "rest-api": "🌐",
+  webhook: "🔗",
+  mongodb: "🍃",
+};
+
 export const Route = createFileRoute("/sources/$sourceId")({
   component: SourceDetailPage,
 });
@@ -118,11 +127,9 @@ function SourceDetailPage() {
       </div>
 
       <div className="flex items-center gap-3">
-        {connectorType?.icon && (
-          <span className="text-2xl" aria-hidden="true">
-            {connectorType.icon}
-          </span>
-        )}
+        <span className="text-2xl" aria-hidden="true">
+          {CONNECTOR_ICONS[connector.connectorTypeId] ?? "📊"}
+        </span>
         <h1 className="text-2xl font-bold tracking-tight">
           {connector.name}
         </h1>
@@ -164,11 +171,13 @@ function SourceDetailPage() {
           <p className="font-medium">
             {testResult.success ? "Connection successful" : "Connection failed"}
           </p>
-          <p className="mt-0.5">{testResult.message}</p>
+          {!testResult.success && testResult.message && (
+            <p className="mt-0.5">{testResult.message}</p>
+          )}
           {testResult.success && (
             <p className="mt-0.5 text-xs opacity-70">
-              Latency: {testResult.latencyMs}ms &middot; Server:{" "}
-              {testResult.serverVersion}
+              Latency: {testResult.latencyMs}ms
+              {testResult.serverVersion && <> &middot; Server: {testResult.serverVersion}</>}
             </p>
           )}
         </div>
