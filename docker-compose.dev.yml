@@ -46,6 +46,8 @@ services:
   api-gateway:
     image: oven/bun:1-alpine
     working_dir: /app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: >
       sh -c "
         bun install &&
