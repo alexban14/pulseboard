@@ -6,3 +6,4 @@ export * from "./connector-sync-runs.js";
 export * from "./dashboards.js";
 export * from "./widgets.js";
 export * from "./semantic-models.js";
+export * from "./stored-files.js";

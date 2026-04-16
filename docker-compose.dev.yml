@@ -41,6 +41,23 @@ services:
     volumes:
       - natsdata_dev:/data
 
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "${MINIO_API_PORT:-9040}:9000"
+      - "${MINIO_CONSOLE_PORT:-9041}:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data_dev:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   # ── API Gateway (hot reload via nest start --watch + SWC) ──
 
   api-gateway:
@@ -67,6 +84,12 @@ services:
       NATS_URL: nats://nats:4222
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-minio}
+      STORAGE_BUCKET: ${STORAGE_BUCKET:-pulseboard}
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      STORAGE_FORCE_PATH_STYLE: "true"
       NODE_ENV: development
     depends_on:
       postgres:
@@ -151,3 +174,4 @@ volumes:
   natsdata_dev:
   node_modules_dev:
   dagster_home_dev:
+  minio_data_dev:

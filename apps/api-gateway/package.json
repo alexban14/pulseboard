@@ -31,6 +31,7 @@
     "rxjs": "^7.8.1",
     "@pulseboard/shared-types": "workspace:*",
     "@pulseboard/shared-db": "workspace:*",
+    "@pulseboard/shared-storage": "workspace:*",
     "csv-parse": "^5.6.0",
     "drizzle-orm": "^0.40.0",
     "multer": "^1.4.5-lts.1",

@@ -1,18 +1,21 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { eq, and } from 'drizzle-orm';
 import { DatabaseService } from '../../database/database.service.js';
+import { StorageService } from '../../storage/storage.service.js';
 import { ConnectorsService } from '../connectors.service.js';
 import { FileParserService } from './file-parser.service.js';
 import {
   connectorInstances,
   connectorSyncTables,
   connectorSyncRuns,
+  storedFiles,
 } from '@pulseboard/shared-db';
 
 @Injectable()
 export class UploadService {
   constructor(
     private readonly database: DatabaseService,
+    private readonly storageService: StorageService,
     private readonly connectorsService: ConnectorsService,
     private readonly fileParser: FileParserService,
   ) {}
@@ -38,6 +41,22 @@ export class UploadService {
     }
 
     const startTime = Date.now();
+
+    // Save original file to object storage
+    const ext = file.originalname.split('.').pop()?.toLowerCase() ?? 'csv';
+    const storageKey = `tenants/${tenantId}/uploads/${connectorId}/${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}_${Date.now()}.${ext}`;
+
+    try {
+      await this.storageService.storage.upload({
+        key: storageKey,
+        body: file.buffer,
+        contentType: file.mimetype || 'application/octet-stream',
+        metadata: { tenant_id: tenantId, connector_id: connectorId },
+      });
+    } catch (storageErr: any) {
+      // Storage failure is non-fatal — log and continue with data loading
+      console.warn(`Failed to save file to storage: ${storageErr.message}`);
+    }
 
     // Parse the file
     const parsed = await this.fileParser.parse(file, options);
@@ -155,6 +174,22 @@ export class UploadService {
         tablesSynced: 1,
         durationMs,
       });
+
+      // Record stored file
+      try {
+        await this.db.insert(storedFiles).values({
+          tenantId,
+          key: storageKey,
+          originalName: file.originalname,
+          contentType: file.mimetype || 'application/octet-stream',
+          sizeBytes: file.size,
+          storageProvider: this.storageService.storage.name,
+          purpose: 'upload',
+          connectorId,
+        });
+      } catch {
+        // Non-fatal if stored_files table doesn't exist yet
+      }
 
       await sql.end();
 

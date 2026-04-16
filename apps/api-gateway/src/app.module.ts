@@ -5,6 +5,7 @@ import { DatabaseModule } from './database/database.module.js';
 import { HealthModule } from './health/health.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { TenantsModule } from './tenants/tenants.module.js';
+import { StorageModule } from './storage/storage.module.js';
 import { ConnectorsModule } from './connectors/connectors.module.js';
 
 @Module({
@@ -30,6 +31,7 @@ import { ConnectorsModule } from './connectors/connectors.module.js';
       },
     ]),
     DatabaseModule,
+    StorageModule,
     HealthModule,
     AuthModule,
     TenantsModule,

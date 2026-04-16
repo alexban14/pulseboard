@@ -58,12 +58,19 @@ clean:
 	bun run clean
 
 # ── Database ──
+# Preferred workflow: db-generate (creates migration file) → db-migrate (applies it)
+# db-push is kept for rapid dev iteration but is interactive for destructive changes
 
-db-push:
-	cd packages/shared-db && DATABASE_URL=$${DATABASE_URL:-postgresql://pulseboard:pulseboard_dev@localhost:9001/pulseboard} bun run push
-
-db-studio:
-	cd packages/shared-db && DATABASE_URL=$${DATABASE_URL:-postgresql://pulseboard:pulseboard_dev@localhost:9001/pulseboard} bun run studio
+DB_URL := $${DATABASE_URL:-postgresql://pulseboard:pulseboard_dev@localhost:9001/pulseboard}
 
 db-generate:
-	cd packages/shared-db && bun run generate
+	cd packages/shared-db && DATABASE_URL=$(DB_URL) bun run generate
+
+db-migrate:
+	cd packages/shared-db && DATABASE_URL=$(DB_URL) bun run migrate
+
+db-push:
+	cd packages/shared-db && DATABASE_URL=$(DB_URL) bun run push
+
+db-studio:
+	cd packages/shared-db && DATABASE_URL=$(DB_URL) bun run studio
