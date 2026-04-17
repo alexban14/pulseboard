@@ -1,4 +1,4 @@
-import { createRootRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
+import { createRootRoute, Link, Outlet, Navigate } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { useAuth } from "@/lib/auth";
 import "@/app.css";
@@ -86,15 +86,11 @@ function SidebarFooter() {
 }
 
 function RedirectToLogin() {
-  const navigate = useNavigate();
-  navigate({ to: "/login" });
-  return null;
+  return <Navigate to="/login" />;
 }
 
 function RedirectToHome() {
-  const navigate = useNavigate();
-  navigate({ to: "/" });
-  return null;
+  return <Navigate to="/" />;
 }
 
 function NavLink({ to, children }: { to: string; children: React.ReactNode }) {

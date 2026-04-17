@@ -3,13 +3,20 @@ import { eq, and } from 'drizzle-orm';
 import { DatabaseService } from '../../database/database.service.js';
 import { StorageService } from '../../storage/storage.service.js';
 import { ConnectorsService } from '../connectors.service.js';
-import { FileParserService } from './file-parser.service.js';
+import { FileParserService, type ParsedSheet } from './file-parser.service.js';
 import {
   connectorInstances,
   connectorSyncTables,
   connectorSyncRuns,
   storedFiles,
 } from '@pulseboard/shared-db';
+
+export interface SheetResult {
+  sheetName: string;
+  tableName: string;
+  columns: { name: string; type: string }[];
+  rowCount: number;
+}
 
 @Injectable()
 export class UploadService {
@@ -24,10 +31,6 @@ export class UploadService {
     return this.database.db;
   }
 
-  /**
-   * Upload a file to a CSV connector instance.
-   * Parses the file, creates a warehouse table, and loads the data.
-   */
   async uploadFile(
     tenantId: string,
     connectorId: string,
@@ -54,76 +57,63 @@ export class UploadService {
         metadata: { tenant_id: tenantId, connector_id: connectorId },
       });
     } catch (storageErr: any) {
-      // Storage failure is non-fatal — log and continue with data loading
       console.warn(`Failed to save file to storage: ${storageErr.message}`);
     }
 
-    // Parse the file
+    // Parse the file (may return multiple sheets for Excel)
     const parsed = await this.fileParser.parse(file, options);
 
-    // Get or create warehouse schema
     const schemaName = `warehouse_${tenantId.slice(0, 8).toLowerCase()}`;
-    const warehouseTable = parsed.tableName;
 
-    // Ensure schema exists
     const postgres = (await import('postgres')).default;
     const sql = postgres(process.env.DATABASE_URL || '');
+
+    const typeMap: Record<string, string> = {
+      string: 'TEXT',
+      integer: 'BIGINT',
+      decimal: 'NUMERIC',
+      boolean: 'BOOLEAN',
+      date: 'DATE',
+      datetime: 'TIMESTAMPTZ',
+    };
 
     try {
       await sql`CREATE SCHEMA IF NOT EXISTS ${sql(schemaName)}`;
 
-      // Build column definitions
-      const typeMap: Record<string, string> = {
-        string: 'TEXT',
-        integer: 'BIGINT',
-        decimal: 'NUMERIC',
-        boolean: 'BOOLEAN',
-        date: 'DATE',
-        datetime: 'TIMESTAMPTZ',
-      };
+      let totalRows = 0;
+      const sheetResults: SheetResult[] = [];
 
-      // Drop existing table if re-uploading
-      await sql.unsafe(
-        `DROP TABLE IF EXISTS ${schemaName}.${warehouseTable}`,
-      );
+      // Load each sheet as a separate warehouse table
+      for (const sheet of parsed.sheets) {
+        const rows = await this.loadSheet(sql, schemaName, sheet, typeMap);
+        totalRows += rows;
 
-      // Create table
-      const colDefs = parsed.columns
-        .map((c) => `"${c.name}" ${typeMap[c.type] || 'TEXT'}`)
-        .join(', ');
+        sheetResults.push({
+          sheetName: sheet.sheetName,
+          tableName: sheet.tableName,
+          columns: sheet.columns,
+          rowCount: rows,
+        });
 
-      await sql.unsafe(`
-        CREATE TABLE ${schemaName}.${warehouseTable} (
-          _pb_id BIGSERIAL,
-          _pb_synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          ${colDefs}
-        )
-      `);
+        // Register sync table
+        const existing = await this.db
+          .select()
+          .from(connectorSyncTables)
+          .where(
+            and(
+              eq(connectorSyncTables.connectorInstanceId, connectorId),
+              eq(connectorSyncTables.sourceTable, sheet.sheetName),
+            ),
+          )
+          .limit(1);
 
-      // Insert data in batches
-      const batchSize = 1000;
-      let inserted = 0;
-
-      for (let i = 0; i < parsed.rows.length; i += batchSize) {
-        const batch = parsed.rows.slice(i, i + batchSize);
-        const colNames = parsed.columns.map((c) => `"${c.name}"`).join(', ');
-
-        for (const row of batch) {
-          const values = parsed.columns.map((c) => {
-            const val = row[c.name];
-            // Empty strings → null for non-string types (PG rejects "" for int/decimal/bool/date)
-            if (val === '' || val === undefined || val === null) {
-              return null;
-            }
-            return val;
+        if (existing.length === 0) {
+          await this.db.insert(connectorSyncTables).values({
+            connectorInstanceId: connectorId,
+            sourceTable: sheet.sheetName,
+            warehouseTable: sheet.tableName,
+            syncEnabled: true,
           });
-          const placeholders = values.map((_, idx) => `$${idx + 1}`).join(', ');
-
-          await sql.unsafe(
-            `INSERT INTO ${schemaName}.${warehouseTable} (${colNames}) VALUES (${placeholders})`,
-            values as any[],
-          );
-          inserted++;
         }
       }
 
@@ -135,32 +125,11 @@ export class UploadService {
         .set({
           status: 'healthy',
           lastSyncAt: new Date(),
-          lastSyncRows: inserted,
+          lastSyncRows: totalRows,
           lastSyncDurationMs: durationMs,
           updatedAt: new Date(),
         })
         .where(eq(connectorInstances.id, connectorId));
-
-      // Upsert sync table entry
-      const existing = await this.db
-        .select()
-        .from(connectorSyncTables)
-        .where(
-          and(
-            eq(connectorSyncTables.connectorInstanceId, connectorId),
-            eq(connectorSyncTables.sourceTable, file.originalname),
-          ),
-        )
-        .limit(1);
-
-      if (existing.length === 0) {
-        await this.db.insert(connectorSyncTables).values({
-          connectorInstanceId: connectorId,
-          sourceTable: file.originalname,
-          warehouseTable,
-          syncEnabled: true,
-        });
-      }
 
       // Create sync run record
       const { newId } = await import('@pulseboard/shared-db');
@@ -170,8 +139,8 @@ export class UploadService {
         startedAt: new Date(startTime),
         completedAt: new Date(),
         status: 'completed',
-        rowsSynced: inserted,
-        tablesSynced: 1,
+        rowsSynced: totalRows,
+        tablesSynced: parsed.sheets.length,
         durationMs,
       });
 
@@ -188,17 +157,17 @@ export class UploadService {
           connectorId,
         });
       } catch {
-        // Non-fatal if stored_files table doesn't exist yet
+        // Non-fatal
       }
 
       await sql.end();
 
       return {
         success: true,
-        tableName: warehouseTable,
+        sheets: sheetResults,
+        totalRows,
+        tablesCreated: parsed.sheets.length,
         schema: schemaName,
-        columns: parsed.columns,
-        rowCount: inserted,
         durationMs,
       };
     } catch (error: any) {
@@ -209,9 +178,56 @@ export class UploadService {
     }
   }
 
-  /**
-   * Preview a file without saving — returns first 50 rows and detected schema.
-   */
+  private async loadSheet(
+    sql: any,
+    schemaName: string,
+    sheet: ParsedSheet,
+    typeMap: Record<string, string>,
+  ): Promise<number> {
+    const { tableName, columns, rows } = sheet;
+
+    // Drop existing table if re-uploading
+    await sql.unsafe(`DROP TABLE IF EXISTS ${schemaName}.${tableName}`);
+
+    // Create table
+    const colDefs = columns
+      .map((c) => `"${c.name}" ${typeMap[c.type] || 'TEXT'}`)
+      .join(', ');
+
+    await sql.unsafe(`
+      CREATE TABLE ${schemaName}.${tableName} (
+        _pb_id BIGSERIAL,
+        _pb_synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        ${colDefs}
+      )
+    `);
+
+    // Insert rows in batches
+    let inserted = 0;
+    const colNames = columns.map((c) => `"${c.name}"`).join(', ');
+
+    for (let i = 0; i < rows.length; i += 1000) {
+      const batch = rows.slice(i, i + 1000);
+
+      for (const row of batch) {
+        const values = columns.map((c) => {
+          const val = row[c.name];
+          if (val === '' || val === undefined || val === null) return null;
+          return val;
+        });
+        const placeholders = values.map((_, idx) => `$${idx + 1}`).join(', ');
+
+        await sql.unsafe(
+          `INSERT INTO ${schemaName}.${tableName} (${colNames}) VALUES (${placeholders})`,
+          values as any[],
+        );
+        inserted++;
+      }
+    }
+
+    return inserted;
+  }
+
   async previewFile(
     file: Express.Multer.File,
     options?: { delimiter?: string; hasHeader?: boolean },
@@ -219,10 +235,13 @@ export class UploadService {
     const parsed = await this.fileParser.parse(file, options);
 
     return {
-      tableName: parsed.tableName,
-      columns: parsed.columns,
-      rowCount: parsed.rowCount,
-      preview: parsed.rows.slice(0, 50),
+      sheets: parsed.sheets.map((s) => ({
+        sheetName: s.sheetName,
+        tableName: s.tableName,
+        columns: s.columns,
+        rowCount: s.rowCount,
+        preview: s.rows.slice(0, 50),
+      })),
     };
   }
 }

@@ -10,11 +10,15 @@ import {
   useSyncRuns,
   useUploadFile,
   useTriggerSync,
+  useStoredFiles,
+  useFilePreview,
   type DiscoveredTable,
   type SyncTable,
   type TestConnectionResult,
   type UploadResult,
   type TriggerSyncResult,
+  type StoredFile,
+  type FilePreview,
 } from "@/lib/hooks/use-connectors.js";
 import { Badge } from "@/components/ui/badge.js";
 import { Spinner } from "@/components/ui/spinner.js";
@@ -149,7 +153,10 @@ function SourceDetailPage() {
 
       {/* Actions — different for CSV vs database connectors */}
       {connector.connectorTypeId === 'csv' ? (
-        <FileUploadZone connectorId={sourceId} />
+        <>
+          <FileUploadZone connectorId={sourceId} />
+          <UploadedFilesList connectorId={sourceId} />
+        </>
       ) : (
         <div className="mt-6 flex flex-wrap gap-3">
           <button
@@ -506,22 +513,31 @@ function FileUploadZone({ connectorId }: { connectorId: string }) {
         <div className="rounded-md bg-green-50 p-4 text-sm text-green-800">
           <p className="font-medium">Upload successful</p>
           <p className="mt-1">
-            Table: <code className="font-mono">{uploadMutation.data.tableName}</code>
+            {uploadMutation.data.totalRows?.toLocaleString() ?? uploadMutation.data.rowCount?.toLocaleString()} total rows
+            {" in "}
+            {uploadMutation.data.tablesCreated ?? 1} table{(uploadMutation.data.tablesCreated ?? 1) > 1 ? 's' : ''}
             {" — "}
-            {uploadMutation.data.rowCount.toLocaleString()} rows loaded in{" "}
             {(uploadMutation.data.durationMs / 1000).toFixed(1)}s
           </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {uploadMutation.data.columns.map((col) => (
-              <span
-                key={col.name}
-                className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs"
-              >
-                {col.name}
-                <span className="text-green-600">({col.type})</span>
-              </span>
-            ))}
-          </div>
+          {uploadMutation.data.sheets?.map((sheet: any) => (
+            <div key={sheet.tableName} className="mt-2 rounded border border-green-200 bg-green-100/50 p-2">
+              <p className="text-xs font-medium">
+                {sheet.sheetName} → <code className="font-mono">{sheet.tableName}</code>
+                {" — "}{sheet.rowCount.toLocaleString()} rows
+              </p>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {sheet.columns.map((col: any) => (
+                  <span
+                    key={col.name}
+                    className="inline-flex items-center gap-0.5 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px]"
+                  >
+                    {col.name}
+                    <span className="text-green-600">({col.type})</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -531,6 +547,163 @@ function FileUploadZone({ connectorId }: { connectorId: string }) {
           {(uploadMutation.error as Error).message || "Upload failed"}
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Uploaded files list with download + preview (CSV connectors)
+// ---------------------------------------------------------------------------
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function UploadedFilesList({ connectorId }: { connectorId: string }) {
+  const { data: files, isLoading } = useStoredFiles();
+  const [previewFileId, setPreviewFileId] = useState<string | null>(null);
+
+  const connectorFiles = (files ?? []).filter(
+    (f: StoredFile) => f.connectorId === connectorId,
+  );
+
+  if (isLoading) return null;
+  if (connectorFiles.length === 0) return null;
+
+  const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:3000/api";
+  const token = localStorage.getItem("auth_token");
+
+  return (
+    <section className="mt-8">
+      <h2 className="text-lg font-semibold text-gray-900">
+        Uploaded Files ({connectorFiles.length})
+      </h2>
+      <div className="mt-3 space-y-2">
+        {connectorFiles.map((f: StoredFile) => (
+          <div key={f.id}>
+            <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3">
+              <div className="flex items-center gap-3">
+                <span className="text-lg">📄</span>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {f.originalName}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {formatSize(f.sizeBytes)} &middot;{" "}
+                    {new Date(f.createdAt).toLocaleString()} &middot;{" "}
+                    {f.storageProvider}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPreviewFileId(previewFileId === f.id ? null : f.id)
+                  }
+                  className="rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50"
+                >
+                  {previewFileId === f.id ? "Hide Preview" : "Preview"}
+                </button>
+                <a
+                  href={`${apiBase}/storage/download/${f.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    // Need auth header — use fetch + blob download instead
+                    e.preventDefault();
+                    fetch(`${apiBase}/storage/download/${f.id}`, {
+                      headers: token ? { Authorization: `Bearer ${token}` } : {},
+                      redirect: "follow",
+                    })
+                      .then((res) => {
+                        if (res.redirected) {
+                          window.open(res.url, "_blank");
+                        } else {
+                          return res.blob().then((blob) => {
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = f.originalName;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                          });
+                        }
+                      })
+                      .catch(() => alert("Download failed"));
+                  }}
+                  className="rounded px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
+                >
+                  Download
+                </a>
+              </div>
+            </div>
+
+            {previewFileId === f.id && <FilePreviewTable fileId={f.id} />}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FilePreviewTable({ fileId }: { fileId: string }) {
+  const { data, isLoading, isError } = useFilePreview(fileId, true);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center rounded-b-lg border border-t-0 border-gray-200 bg-gray-50 p-6">
+        <Spinner className="h-6 w-6" />
+        <span className="ml-2 text-sm text-gray-500">Loading preview...</span>
+      </div>
+    );
+  }
+
+  if (isError || !data || data.columns.length === 0) {
+    return (
+      <div className="rounded-b-lg border border-t-0 border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+        Unable to preview this file.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-b-lg border border-t-0 border-gray-200">
+      <div className="px-4 py-2 bg-gray-50 text-xs text-gray-500">
+        Showing {data.rows.length} of {data.totalRows.toLocaleString()} rows
+        &middot; {data.columns.length} columns
+      </div>
+      <table className="min-w-full divide-y divide-gray-200 text-xs">
+        <thead className="bg-gray-50">
+          <tr>
+            {data.columns.map((col) => (
+              <th
+                key={col}
+                className="whitespace-nowrap px-3 py-2 text-left font-medium text-gray-500"
+              >
+                {col}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100 bg-white">
+          {data.rows.map((row, i) => (
+            <tr key={i} className="hover:bg-gray-50">
+              {data.columns.map((col) => (
+                <td
+                  key={col}
+                  className="whitespace-nowrap px-3 py-1.5 text-gray-700 max-w-[200px] truncate"
+                  title={row[col] ?? ""}
+                >
+                  {row[col] ?? <span className="text-gray-300">null</span>}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

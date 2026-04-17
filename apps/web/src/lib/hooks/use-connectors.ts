@@ -83,12 +83,25 @@ export interface SyncRun {
 // Query keys
 // ---------------------------------------------------------------------------
 
+export interface StoredFile {
+  id: string;
+  key: string;
+  originalName: string;
+  contentType: string;
+  sizeBytes: number;
+  storageProvider: string;
+  purpose: string;
+  connectorId: string | null;
+  createdAt: string;
+}
+
 export const connectorKeys = {
   all: ["connectors"] as const,
   types: ["connectorTypes"] as const,
   detail: (id: string) => ["connectors", id] as const,
   syncTables: (id: string) => ["connectors", id, "sync-tables"] as const,
   syncRuns: (id: string) => ["connectors", id, "sync-runs"] as const,
+  storedFiles: ["storedFiles"] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -134,6 +147,27 @@ export function useSyncRuns(connectorId: string) {
     queryFn: () =>
       apiClient.get<SyncRun[]>(`/connectors/${connectorId}/sync-runs`),
     enabled: !!connectorId,
+  });
+}
+
+export function useStoredFiles() {
+  return useQuery({
+    queryKey: connectorKeys.storedFiles,
+    queryFn: () => apiClient.get<StoredFile[]>("/storage/files"),
+  });
+}
+
+export interface FilePreview {
+  columns: string[];
+  rows: Record<string, string | null>[];
+  totalRows: number;
+}
+
+export function useFilePreview(fileId: string, enabled = false) {
+  return useQuery({
+    queryKey: ["filePreview", fileId],
+    queryFn: () => apiClient.get<FilePreview>(`/storage/preview/${fileId}?limit=100`),
+    enabled: enabled && !!fileId,
   });
 }
 
@@ -232,13 +266,24 @@ export function useTriggerSync() {
   });
 }
 
-export interface UploadResult {
-  success: boolean;
+export interface UploadSheetResult {
+  sheetName: string;
   tableName: string;
-  schema: string;
   columns: { name: string; type: string }[];
   rowCount: number;
+}
+
+export interface UploadResult {
+  success: boolean;
+  sheets: UploadSheetResult[];
+  totalRows: number;
+  tablesCreated: number;
+  schema: string;
   durationMs: number;
+  // Legacy single-sheet compat
+  tableName?: string;
+  columns?: { name: string; type: string }[];
+  rowCount?: number;
 }
 
 export function useUploadFile(connectorId: string) {

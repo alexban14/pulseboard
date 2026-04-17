@@ -90,18 +90,13 @@ function SourcesListPage() {
           {connectors.map((c) => {
             const ct = typeMap.get(c.connectorTypeId);
             return (
-              <div
+              <Link
                 key={c.id}
-                className="relative rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+                to="/sources/$sourceId"
+                params={{ sourceId: c.id }}
+                className="block rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md hover:border-gray-300"
               >
-                <Link
-                  to="/sources/$sourceId"
-                  params={{ sourceId: c.id }}
-                  className="absolute inset-0 z-0"
-                  aria-label={`View ${c.name}`}
-                />
-
-                <div className="relative z-10 flex items-start justify-between">
+                <div className="flex items-start justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-lg" aria-hidden="true">
                       {CONNECTOR_ICONS[c.connectorTypeId] ?? "📊"}
@@ -113,11 +108,11 @@ function SourcesListPage() {
                   <Badge status={c.status} />
                 </div>
 
-                <p className="relative z-10 mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-gray-500">
                   {ct?.name ?? c.connectorTypeId}
                 </p>
 
-                <div className="relative z-10 mt-3 flex items-center justify-between text-xs text-gray-400">
+                <div className="mt-3 flex items-center justify-between text-xs text-gray-400">
                   <span>
                     {c.lastSyncAt
                       ? `Synced ${new Date(c.lastSyncAt).toLocaleString()}`
@@ -128,7 +123,7 @@ function SourcesListPage() {
                   )}
                 </div>
 
-                <div className="relative z-10 mt-3 flex justify-end">
+                <div className="mt-3 flex justify-end" onClick={(e) => e.preventDefault()}>
                   {confirmId === c.id ? (
                     <span className="flex items-center gap-2 text-xs">
                       <span className="text-gray-500">Delete?</span>
@@ -158,7 +153,7 @@ function SourcesListPage() {
                     </button>
                   )}
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>

@@ -1,10 +1,16 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 
-interface ParsedFile {
+export interface ParsedSheet {
+  sheetName: string;
   tableName: string;
   columns: { name: string; type: string }[];
   rows: Record<string, unknown>[];
   rowCount: number;
+}
+
+export interface ParsedFile {
+  sheets: ParsedSheet[];
+  originalName: string;
 }
 
 @Injectable()
@@ -16,7 +22,8 @@ export class FileParserService {
     const ext = file.originalname.split('.').pop()?.toLowerCase();
 
     if (ext === 'csv' || ext === 'tsv') {
-      return this.parseCsv(file, options);
+      const sheet = await this.parseCsv(file, options);
+      return { sheets: [sheet], originalName: file.originalname };
     } else if (ext === 'xlsx' || ext === 'xls') {
       return this.parseExcel(file, options);
     }
@@ -29,7 +36,7 @@ export class FileParserService {
   private async parseCsv(
     file: Express.Multer.File,
     options?: { delimiter?: string; hasHeader?: boolean },
-  ): Promise<ParsedFile> {
+  ): Promise<ParsedSheet> {
     const { parse } = await import('csv-parse/sync');
 
     const delimiter = options?.delimiter ?? this.detectDelimiter(file.buffer);
@@ -56,13 +63,11 @@ export class FileParserService {
       dataRows = records;
     }
 
-    // Detect column types from data
     const columns = headers.map((name, i) => ({
       name,
       type: this.inferColumnType(dataRows.map((r) => r[i])),
     }));
 
-    // Build row objects
     const rows = dataRows.map((row) => {
       const obj: Record<string, unknown> = {};
       headers.forEach((h, i) => {
@@ -73,7 +78,7 @@ export class FileParserService {
 
     const tableName = this.fileToTableName(file.originalname);
 
-    return { tableName, columns, rows, rowCount: rows.length };
+    return { sheetName: 'Sheet 1', tableName, columns, rows, rowCount: rows.length };
   }
 
   private async parseExcel(
@@ -83,55 +88,78 @@ export class FileParserService {
     const XLSX = await import('xlsx');
 
     const workbook = XLSX.read(file.buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    if (!sheetName) {
+    const hasHeader = options?.hasHeader ?? true;
+    const baseTableName = this.fileToTableName(file.originalname);
+
+    if (workbook.SheetNames.length === 0) {
       throw new BadRequestException('Excel file has no sheets');
     }
 
-    const sheet = workbook.Sheets[sheetName];
-    const hasHeader = options?.hasHeader ?? true;
+    const sheets: ParsedSheet[] = [];
 
-    const jsonData: unknown[][] = XLSX.utils.sheet_to_json(sheet, {
-      header: 1,
-      defval: null,
-    });
+    for (const sheetName of workbook.SheetNames) {
+      const sheet = workbook.Sheets[sheetName];
+      if (!sheet?.['!ref']) continue; // skip empty sheets
 
-    if (jsonData.length === 0) {
-      throw new BadRequestException('Sheet is empty');
-    }
-
-    let headers: string[];
-    let dataRows: unknown[][];
-
-    if (hasHeader) {
-      headers = (jsonData[0] as unknown[]).map(
-        (h, i) => this.sanitizeColumnName(String(h ?? '')) || `column_${i + 1}`,
-      );
-      dataRows = jsonData.slice(1);
-    } else {
-      headers = (jsonData[0] as unknown[]).map((_, i) => `column_${i + 1}`);
-      dataRows = jsonData;
-    }
-
-    const columns = headers.map((name, i) => ({
-      name,
-      type: this.inferColumnType(
-        dataRows.map((r) => (r[i] != null ? String(r[i]) : undefined)),
-      ),
-    }));
-
-    const rows = dataRows.map((row) => {
-      const obj: Record<string, unknown> = {};
-      headers.forEach((h, i) => {
-        const val = (row as unknown[])[i];
-        obj[h] = val != null ? String(val) : null;
+      const jsonData: unknown[][] = XLSX.utils.sheet_to_json(sheet, {
+        header: 1,
+        defval: null,
       });
-      return obj;
-    });
 
-    const tableName = this.fileToTableName(file.originalname);
+      if (jsonData.length === 0) continue;
 
-    return { tableName, columns, rows, rowCount: rows.length };
+      let headers: string[];
+      let dataRows: unknown[][];
+
+      if (hasHeader) {
+        headers = (jsonData[0] as unknown[]).map(
+          (h, i) => this.sanitizeColumnName(String(h ?? '')) || `column_${i + 1}`,
+        );
+        dataRows = jsonData.slice(1);
+      } else {
+        headers = (jsonData[0] as unknown[]).map((_, i) => `column_${i + 1}`);
+        dataRows = jsonData;
+      }
+
+      // Skip sheets with no data rows
+      if (dataRows.length === 0) continue;
+
+      const columns = headers.map((name, i) => ({
+        name,
+        type: this.inferColumnType(
+          dataRows.map((r) => (r[i] != null ? String(r[i]) : undefined)),
+        ),
+      }));
+
+      const rows = dataRows.map((row) => {
+        const obj: Record<string, unknown> = {};
+        headers.forEach((h, i) => {
+          const val = (row as unknown[])[i];
+          obj[h] = val != null ? String(val) : null;
+        });
+        return obj;
+      });
+
+      // Table name: base_sheetname (or just base if single sheet)
+      const sheetSuffix = workbook.SheetNames.length === 1
+        ? ''
+        : `_${this.sanitizeColumnName(sheetName)}`;
+      const tableName = `${baseTableName}${sheetSuffix}`;
+
+      sheets.push({
+        sheetName,
+        tableName,
+        columns,
+        rows,
+        rowCount: rows.length,
+      });
+    }
+
+    if (sheets.length === 0) {
+      throw new BadRequestException('No sheets with data found');
+    }
+
+    return { sheets, originalName: file.originalname };
   }
 
   private detectDelimiter(buffer: Buffer): string {
@@ -168,7 +196,6 @@ export class FileParserService {
     );
     if (allBooleans) return 'boolean';
 
-    // Date detection (ISO format or common patterns)
     const dateRegex = /^\d{4}-\d{2}-\d{2}/;
     const allDates = sample.every((v) => dateRegex.test(v!));
     if (allDates) return 'datetime';
@@ -176,7 +203,7 @@ export class FileParserService {
     return 'string';
   }
 
-  private sanitizeColumnName(name: string): string {
+  sanitizeColumnName(name: string): string {
     return name
       .toLowerCase()
       .trim()
@@ -185,7 +212,7 @@ export class FileParserService {
       .replace(/^_|_$/g, '');
   }
 
-  private fileToTableName(filename: string): string {
+  fileToTableName(filename: string): string {
     const name = filename.replace(/\.[^.]+$/, '');
     return 'upload_' + this.sanitizeColumnName(name);
   }
