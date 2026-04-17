@@ -193,7 +193,7 @@ When enabled, restricted to:
 
 | Requirement | Implementation |
 |-------------|---------------|
-| Right to deletion | Tenant deletion cascades to all data (schema DROP) |
+| Right to deletion | Tenant deletion cascades ALL data: warehouse schema DROP, storage prefix DELETE, all platform records. 30-day grace period for recovery. See [16-DATA-LIFECYCLE.md](16-DATA-LIFECYCLE.md). |
 | Data portability | Export all tenant data via API |
 | Data residency | EU-hosted infrastructure (Hetzner/Azure EU) |
 | Consent tracking | Signup flow records consent |

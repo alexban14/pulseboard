@@ -24,6 +24,7 @@
 | R18 | **LLM accuracy degradation** — model updates change NLQ quality | Medium | Medium | Accuracy test suite (~100 queries with expected outputs) runs against each provider/model before deployment. Version pinning for LLM models. Confidence scoring surfaces low-quality results for fallback. |
 | R19 | **WebSocket scalability** — many concurrent connections per node | Low | Medium | Socket.IO handles ~10K connections per process. At our scale (<1000 concurrent users), single gateway is sufficient. NATS handles the fan-out. If needed, Socket.IO sticky sessions with Redis adapter for multi-process. |
 | R20 | **Storage cost at scale** — large tenants uploading many files | Low | Medium | Per-tenant storage quotas by plan. Backblaze B2 ($0.005/GB) for archival. Auto-cleanup of old exports via retention policies. |
+| R21 | **Orphaned data after connector/tenant deletion** — warehouse tables and stored files left behind | Medium | Medium | Connector delete has optional `cleanup=true` param. Tenant delete cascades everything. Weekly retention sensor purges expired data. Dry-run mode for validation. See [16-DATA-LIFECYCLE.md](16-DATA-LIFECYCLE.md). |
 
 ---
 

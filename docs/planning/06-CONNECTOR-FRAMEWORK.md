@@ -529,3 +529,15 @@ export default defineConnector({
 ```
 
 Published connectors appear in the marketplace for all tenants to use.
+
+---
+
+## Connector Deletion & Data Cleanup
+
+When a connector is deleted, the user can optionally clean up the warehouse data and stored files it produced. See [16-DATA-LIFECYCLE.md](16-DATA-LIFECYCLE.md) for the full cleanup cascade.
+
+```
+DELETE /api/connectors/:id?cleanup=true
+  → Deletes: connector config, sync tables, sync runs
+  → Also: drops warehouse tables, deletes stored files from object storage
+```

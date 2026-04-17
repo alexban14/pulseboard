@@ -66,6 +66,17 @@ Tenant Deleted:
   └→ GDPR: confirm no PII retained after 30-day window
 ```
 
+### Tenant Deletion Cascade
+
+When a tenant is deleted (after 30-day grace period), ALL data is purged:
+
+1. Delete stored files from object storage (`tenants/{id}/` prefix)
+2. Drop warehouse schema (`DROP SCHEMA warehouse_{id} CASCADE`)
+3. Cascade delete all platform records (connector configs, dashboards, models, users)
+4. Hard-delete tenant record
+
+This is critical for GDPR compliance. See [16-DATA-LIFECYCLE.md](16-DATA-LIFECYCLE.md) for implementation details.
+
 ---
 
 ## Tenant Data Model

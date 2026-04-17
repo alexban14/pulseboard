@@ -27,5 +27,6 @@ How-to guides for development and operations.
 
 Original project plans, requirements, and roadmaps.
 
-- [Planning docs](planning/) — 15 numbered documents covering market positioning, requirements, technology evaluation, architecture plans, and implementation roadmap
+- [Planning docs](planning/) — 16 numbered documents covering market positioning, requirements, technology evaluation, architecture plans, and implementation roadmap
+- [Data Lifecycle](planning/16-DATA-LIFECYCLE.md) — Connector/tenant deletion cascades, storage and warehouse retention policies
 - [Progress Tracker](PROGRESS.md) — Phase-by-phase implementation checklist
