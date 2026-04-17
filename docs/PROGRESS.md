@@ -48,6 +48,13 @@
 - [x] 1.25 — Wire storage into CSV upload (save file + record in DB)
 - [x] 1.26 — Download API endpoint with signed URLs
 
+### Data Lifecycle & Cleanup
+
+- [ ] 1.27 — Connector deletion: option to also drop warehouse tables + stored files
+- [ ] 1.28 — Tenant deletion: cascade drop warehouse schema + storage prefix + all records
+- [ ] 1.29 — Storage retention policies: auto-delete old exports by plan (configurable TTL)
+- [ ] 1.30 — Warehouse data retention: auto-purge per plan (Free: 30 days, Pro: 3 years, etc.)
+
 ---
 
 ## Phase 2: Dashboard + Semantic Layer (Target: 8 weeks)
