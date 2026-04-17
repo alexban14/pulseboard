@@ -35,6 +35,7 @@ export class StorageFactory {
    * STORAGE_ACCESS_KEY=minioadmin
    * STORAGE_SECRET_KEY=minioadmin
    * STORAGE_FORCE_PATH_STYLE=true
+   * STORAGE_PUBLIC_ENDPOINT=https://pulseboard-minio-test.example.com  (for signed URLs)
    * STORAGE_BASE_PATH=/data/storage  (local only)
    */
   static fromEnv(): StorageProvider {
@@ -44,6 +45,7 @@ export class StorageFactory {
       provider,
       bucket: process.env.STORAGE_BUCKET ?? 'pulseboard',
       endpoint: process.env.STORAGE_ENDPOINT,
+      publicEndpoint: process.env.STORAGE_PUBLIC_ENDPOINT,
       region: process.env.STORAGE_REGION ?? 'us-east-1',
       accessKeyId: process.env.STORAGE_ACCESS_KEY,
       secretAccessKey: process.env.STORAGE_SECRET_KEY,

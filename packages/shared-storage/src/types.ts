@@ -4,6 +4,7 @@ export interface StorageConfig {
 
   // S3-compatible (MinIO, AWS S3, Backblaze B2)
   endpoint?: string;
+  publicEndpoint?: string;  // for signed URLs accessible from browsers (e.g., https://pulseboard-minio-test.banalexandru.online)
   region?: string;
   accessKeyId?: string;
   secretAccessKey?: string;

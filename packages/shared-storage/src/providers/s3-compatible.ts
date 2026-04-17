@@ -14,20 +14,34 @@ import type { StorageProvider, StorageConfig, UploadParams, StorageObject } from
 export class S3CompatibleProvider implements StorageProvider {
   readonly name: string;
   private client: S3Client;
+  private publicClient: S3Client;
   private bucket: string;
 
   constructor(config: StorageConfig) {
     this.name = config.provider;
     this.bucket = config.bucket;
 
+    const credentials = {
+      accessKeyId: config.accessKeyId ?? '',
+      secretAccessKey: config.secretAccessKey ?? '',
+    };
+    const forcePathStyle = config.forcePathStyle ?? (config.provider === 'minio');
+    const region = config.region ?? 'us-east-1';
+
+    // Internal client — used for uploads, downloads, listing (Docker network)
     this.client = new S3Client({
       endpoint: config.endpoint,
-      region: config.region ?? 'us-east-1',
-      credentials: {
-        accessKeyId: config.accessKeyId ?? '',
-        secretAccessKey: config.secretAccessKey ?? '',
-      },
-      forcePathStyle: config.forcePathStyle ?? (config.provider === 'minio'),
+      region,
+      credentials,
+      forcePathStyle,
+    });
+
+    // Public client — used for signed URLs (browser-accessible endpoint)
+    this.publicClient = new S3Client({
+      endpoint: config.publicEndpoint ?? config.endpoint,
+      region,
+      credentials,
+      forcePathStyle,
     });
   }
 
@@ -72,7 +86,7 @@ export class S3CompatibleProvider implements StorageProvider {
 
   async getSignedUrl(key: string, expiresInSeconds = 3600): Promise<string> {
     return getSignedUrl(
-      this.client,
+      this.publicClient,
       new GetObjectCommand({
         Bucket: this.bucket,
         Key: key,
