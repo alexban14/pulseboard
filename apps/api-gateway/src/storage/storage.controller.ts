@@ -1,15 +1,18 @@
 import {
   Controller,
   Get,
+  Delete,
   Param,
   Query,
   Res,
   UseGuards,
   Request,
   NotFoundException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { StorageService } from './storage.service.js';
 import { DatabaseService } from '../database/database.service.js';
@@ -63,7 +66,7 @@ export class StorageController {
     return { columns: [], rows: [], totalRows: 0 };
   }
 
-  /** GET /api/storage/files — list stored files for the tenant */
+  /** GET /api/storage/files — list stored files for the tenant (includes soft-deleted) */
   @Get('files')
   async listFiles(@Request() req: AuthRequest) {
     return this.database.db
@@ -71,6 +74,35 @@ export class StorageController {
       .from(storedFiles)
       .where(eq(storedFiles.tenantId, req.user.tenantId))
       .orderBy(storedFiles.createdAt);
+  }
+
+  /** DELETE /api/storage/:fileId — soft-delete file + remove from storage */
+  @Delete(':fileId')
+  @HttpCode(HttpStatus.OK)
+  async deleteFile(
+    @Request() req: AuthRequest,
+    @Param('fileId') fileId: string,
+  ) {
+    const file = await this.getFile(req.user.tenantId, fileId);
+
+    if (file.deletedAt) {
+      return { deleted: true, message: 'File already deleted' };
+    }
+
+    // Remove from object storage
+    try {
+      await this.storageService.storage.delete(file.key);
+    } catch (err: any) {
+      console.warn(`Failed to delete from storage: ${err.message}`);
+    }
+
+    // Soft-delete the record (keep for audit trail)
+    await this.database.db
+      .update(storedFiles)
+      .set({ deletedAt: new Date() })
+      .where(eq(storedFiles.id, fileId));
+
+    return { deleted: true, fileId, originalName: file.originalName };
   }
 
   private async getFile(tenantId: string, fileId: string) {

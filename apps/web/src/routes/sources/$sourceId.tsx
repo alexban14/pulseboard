@@ -12,6 +12,7 @@ import {
   useTriggerSync,
   useStoredFiles,
   useFilePreview,
+  useDeleteFile,
   type DiscoveredTable,
   type SyncTable,
   type TestConnectionResult,
@@ -563,7 +564,9 @@ function formatSize(bytes: number): string {
 
 function UploadedFilesList({ connectorId }: { connectorId: string }) {
   const { data: files, isLoading } = useStoredFiles();
+  const deleteMutation = useDeleteFile();
   const [previewFileId, setPreviewFileId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const connectorFiles = (files ?? []).filter(
     (f: StoredFile) => f.connectorId === connectorId,
@@ -572,16 +575,42 @@ function UploadedFilesList({ connectorId }: { connectorId: string }) {
   if (isLoading) return null;
   if (connectorFiles.length === 0) return null;
 
+  const activeFiles = connectorFiles.filter((f) => !f.deletedAt);
+  const deletedFiles = connectorFiles.filter((f) => f.deletedAt);
+
   const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:3000/api";
   const token = localStorage.getItem("auth_token");
+
+  function handleDownload(f: StoredFile) {
+    fetch(`${apiBase}/storage/download/${f.id}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      redirect: "follow",
+    })
+      .then((res) => {
+        if (res.redirected) {
+          window.open(res.url, "_blank");
+        } else {
+          return res.blob().then((blob) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = f.originalName;
+            a.click();
+            URL.revokeObjectURL(url);
+          });
+        }
+      })
+      .catch(() => alert("Download failed"));
+  }
 
   return (
     <section className="mt-8">
       <h2 className="text-lg font-semibold text-gray-900">
-        Uploaded Files ({connectorFiles.length})
+        Uploaded Files ({activeFiles.length})
       </h2>
       <div className="mt-3 space-y-2">
-        {connectorFiles.map((f: StoredFile) => (
+        {/* Active files */}
+        {activeFiles.map((f: StoredFile) => (
           <div key={f.id}>
             <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3">
               <div className="flex items-center gap-3">
@@ -592,8 +621,7 @@ function UploadedFilesList({ connectorId }: { connectorId: string }) {
                   </p>
                   <p className="text-xs text-gray-400">
                     {formatSize(f.sizeBytes)} &middot;{" "}
-                    {new Date(f.createdAt).toLocaleString()} &middot;{" "}
-                    {f.storageProvider}
+                    {new Date(f.createdAt).toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -607,43 +635,78 @@ function UploadedFilesList({ connectorId }: { connectorId: string }) {
                 >
                   {previewFileId === f.id ? "Hide Preview" : "Preview"}
                 </button>
-                <a
-                  href={`${apiBase}/storage/download/${f.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => {
-                    // Need auth header — use fetch + blob download instead
-                    e.preventDefault();
-                    fetch(`${apiBase}/storage/download/${f.id}`, {
-                      headers: token ? { Authorization: `Bearer ${token}` } : {},
-                      redirect: "follow",
-                    })
-                      .then((res) => {
-                        if (res.redirected) {
-                          window.open(res.url, "_blank");
-                        } else {
-                          return res.blob().then((blob) => {
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement("a");
-                            a.href = url;
-                            a.download = f.originalName;
-                            a.click();
-                            URL.revokeObjectURL(url);
-                          });
-                        }
-                      })
-                      .catch(() => alert("Download failed"));
-                  }}
+                <button
+                  type="button"
+                  onClick={() => handleDownload(f)}
                   className="rounded px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
                 >
                   Download
-                </a>
+                </button>
+                {confirmDeleteId === f.id ? (
+                  <span className="flex items-center gap-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        deleteMutation.mutate(f.id);
+                        setConfirmDeleteId(null);
+                      }}
+                      className="font-medium text-red-600 hover:text-red-800"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteId(null)}
+                      className="font-medium text-gray-500 hover:text-gray-700"
+                    >
+                      Cancel
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteId(f.id)}
+                    className="rounded px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-50"
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
             </div>
 
             {previewFileId === f.id && <FilePreviewTable fileId={f.id} />}
           </div>
         ))}
+
+        {/* Deleted files (grayed out, for audit trail) */}
+        {deletedFiles.length > 0 && (
+          <div className="mt-4">
+            <p className="text-xs font-medium text-gray-400 mb-2">
+              Previously uploaded ({deletedFiles.length})
+            </p>
+            {deletedFiles.map((f: StoredFile) => (
+              <div
+                key={f.id}
+                className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-2 mb-1 opacity-50"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-lg">📄</span>
+                  <div>
+                    <p className="text-sm text-gray-500 line-through">
+                      {f.originalName}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {formatSize(f.sizeBytes)} &middot; uploaded{" "}
+                      {new Date(f.createdAt).toLocaleString()} &middot; deleted{" "}
+                      {new Date(f.deletedAt!).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs text-gray-400">File removed</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

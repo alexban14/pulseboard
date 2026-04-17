@@ -34,6 +34,7 @@ export const storedFiles = pgTable(
     ),
     metadata: jsonb("metadata").default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (table) => [
     index("idx_stored_files_tenant").on(table.tenantId),

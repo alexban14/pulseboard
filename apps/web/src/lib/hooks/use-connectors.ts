@@ -93,6 +93,7 @@ export interface StoredFile {
   purpose: string;
   connectorId: string | null;
   createdAt: string;
+  deletedAt: string | null;
 }
 
 export const connectorKeys = {
@@ -168,6 +169,17 @@ export function useFilePreview(fileId: string, enabled = false) {
     queryKey: ["filePreview", fileId],
     queryFn: () => apiClient.get<FilePreview>(`/storage/preview/${fileId}?limit=100`),
     enabled: enabled && !!fileId,
+  });
+}
+
+export function useDeleteFile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (fileId: string) =>
+      apiClient.delete(`/storage/${fileId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: connectorKeys.storedFiles });
+    },
   });
 }
 
